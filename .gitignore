@@ -24,4 +24,8 @@ dist-ssr
 *.sw?
 .env
 .env.*
-!.env.example.playwright-mcp/
+!.env.example
+
+# Local tooling scratch
+.playwright-mcp/
+.worktrees/
