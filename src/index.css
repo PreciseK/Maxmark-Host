@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 6% 7%;
+    --foreground: 0 0% 100%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 4% 65%;
+    --border: 240 5% 18%;
+    --input: 240 5% 12%;
+    --ring: 240 70% 60%;
+    --primary: 240 70% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 20%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 35 80% 50%;
+    --accent-foreground: 0 0% 100%;
+    --surface: 240 6% 10%;
+    --surface-soft: 240 6% 12%;
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 80% 50%;
+    --warning-foreground: 0 0% 100%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    @apply select-none;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+

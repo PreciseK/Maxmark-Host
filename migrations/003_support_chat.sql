@@ -1,0 +1,22 @@
+-- Migration 003 — support chat (conversations + messages + realtime)
+--
+-- All support-chat objects are new and defined idempotently in schema.sql:
+--   * enums support_conversation_status / support_sender_role
+--   * tables support_conversations / support_messages
+--   * triggers support_message_set_sender (anti-forgery: sender fields are
+--     always derived from the writer's JWT) and support_conversation_bump
+--     (denormalized preview / ordering / unread counters / status flow)
+--   * RLS: customers own their threads, admins see and manage all,
+--     messages are append-only
+--   * supabase_realtime publication membership for both tables (guarded)
+--
+-- There are no transforms of existing data, so this migration follows the
+-- repo convention (see migration 001 §3):
+--
+--   Re-run schema.sql after pulling this change. It is idempotent.
+--
+-- Verify afterwards:
+--   select tablename from pg_publication_tables
+--   where pubname = 'supabase_realtime' and schemaname = 'public';
+--   -- must list support_messages and support_conversations
+select 'Run schema.sql to install the support chat schema.' as instruction;
