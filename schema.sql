@@ -209,13 +209,13 @@ create table if not exists public.marketplace_plugins (
   requires_wordpress text not null,
   requires_php text not null,
   price_ngn numeric(10, 2) not null,
-  download_asset_path text,
   status public.marketplace_plugin_status not null default 'active',
   featured boolean not null default false,
   rating numeric(2,1) not null default 0,
   installs_label text not null default '',
   gradient text not null default '',
   highlights jsonb not null default '[]',
+  download_asset_path text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint marketplace_plugins_price_nonnegative check (price_ngn >= 0),
@@ -251,6 +251,7 @@ create table if not exists public.user_profiles (
   display_name text not null default '',
   account_id text not null unique,
   support_pin text not null,
+  avatar_url text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -328,8 +329,16 @@ create table if not exists public.support_messages (
   sender_id uuid not null references auth.users(id) on delete cascade,
   sender_role public.support_sender_role not null,
   body text not null,
+  attachment_key text,
+  attachment_name text,
+  attachment_size integer,
+  attachment_type text,
   created_at timestamptz not null default timezone('utc', now()),
-  constraint support_messages_body_length check (char_length(body) between 1 and 4000)
+  constraint support_messages_body_length
+    check (
+      char_length(body) between 1 and 4000
+      or (char_length(body) = 0 and attachment_key is not null)
+    )
 );
 
 -- Sender integrity: clients insert messages directly, so the sender fields
