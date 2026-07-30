@@ -71,7 +71,7 @@ Storage (marketplace ZIPs, chat attachments, avatars) uses two R2 buckets access
    supabase functions deploy admin-actions
    ```
 
-7. Run `migrations/004_r2_storage.sql` against your database (or re-run `schema.sql`, which is idempotent and includes the same columns).
+7. Run `migrations/004_r2_storage.sql` and `migrations/006_marketplace_asset_flag.sql` against your database (or re-run `schema.sql`, which is idempotent and includes the same columns) **before** deploying the frontend build. The marketplace fetch selects a generated `has_download_asset` column added by migration 006 — deploying the frontend first causes that query to fail and the app to silently fall back to demo data app-wide until the migration lands.
 
 ---
 
