@@ -17,6 +17,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@4'
 
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts'
+import { presignPut } from '../_shared/r2.ts'
 
 const bodySchema = z.discriminatedUnion('action', [
   z.object({
@@ -63,6 +64,7 @@ const bodySchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('upsert_plugin'),
     id: z.string().uuid().optional(),
+    downloadAssetPath: z.string().max(500).optional(),
     slug: z.string().min(1).max(100),
     name: z.string().min(1).max(150),
     tagline: z.string().min(1).max(300),
@@ -87,6 +89,13 @@ const bodySchema = z.discriminatedUnion('action', [
     action: z.literal('set_conversation_status'),
     conversationId: z.string().uuid(),
     status: z.enum(['open', 'pending', 'closed']),
+  }),
+  z.object({
+    action: z.literal('get_plugin_upload_url'),
+    pluginId: z.string().uuid(),
+    version: z.string().min(1).max(40),
+    fileName: z.string().min(1).max(200),
+    contentLength: z.number().int().positive().max(50 * 1024 * 1024),
   }),
 ])
 
@@ -335,6 +344,7 @@ async function upsertPlugin(
     status: body.status,
     featured: body.featured,
     installs_label: body.installsLabel,
+    download_asset_path: body.downloadAssetPath ?? null,
   }
 
   const query = body.id
@@ -379,6 +389,21 @@ async function setConversationStatus(
   return ok({ conversation: data }, 'conversation', body.conversationId)
 }
 
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120)
+}
+
+async function getPluginUploadUrl(
+  body: Extract<ActionBody, { action: 'get_plugin_upload_url' }>,
+): Promise<ActionOutcome> {
+  const bucket = Deno.env.get('R2_PRIVATE_BUCKET')
+  if (!bucket) throw new ActionError('R2_PRIVATE_BUCKET is not configured', 500)
+
+  const key = `plugins/${body.pluginId}/${body.version}/${sanitizeFileName(body.fileName)}`
+  const uploadUrl = await presignPut(bucket, key, 'application/zip', body.contentLength, 600)
+  return ok({ uploadUrl, key }, 'plugin', body.pluginId)
+}
+
 // Reads are exempt from the audit log.
 const auditableActions = new Set<ActionBody['action']>([
   'adjust_credit',
@@ -390,6 +415,7 @@ const auditableActions = new Set<ActionBody['action']>([
   'upsert_plugin',
   'set_purchase_status',
   'set_conversation_status',
+  'get_plugin_upload_url',
 ])
 
 Deno.serve(async (request) => {
@@ -481,6 +507,9 @@ Deno.serve(async (request) => {
         break
       case 'set_conversation_status':
         outcome = await setConversationStatus(admin, body)
+        break
+      case 'get_plugin_upload_url':
+        outcome = await getPluginUploadUrl(body)
         break
     }
   } catch (error) {

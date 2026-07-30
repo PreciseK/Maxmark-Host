@@ -115,6 +115,7 @@ export type AdminAction =
   | {
       action: 'upsert_plugin'
       id?: string
+      downloadAssetPath?: string
       slug: string
       name: string
       tagline: string
@@ -135,6 +136,13 @@ export type AdminAction =
       action: 'set_conversation_status'
       conversationId: string
       status: 'open' | 'pending' | 'closed'
+    }
+  | {
+      action: 'get_plugin_upload_url'
+      pluginId: string
+      version: string
+      fileName: string
+      contentLength: number
     }
 
 export function adminAction<T>(supabase: SupabaseClient, body: AdminAction): Promise<T> {
