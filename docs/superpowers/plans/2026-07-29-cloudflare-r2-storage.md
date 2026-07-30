@@ -127,7 +127,10 @@ Expected: three matches for each new column name (definition line — `user_prof
 
 - [ ] **Step 4: Commit**
 
-(This repo has no `.git` — skip commit steps for all tasks in this plan. Each task's file changes are the artifact; move directly to the next task.)
+```bash
+git add migrations/004_r2_storage.sql schema.sql
+git commit -m "feat: add R2-backed columns (avatar_url, message attachments, plugin asset path)"
+```
 
 ---
 
@@ -233,7 +236,10 @@ Expected: one `npm:aws4fetch@1` import line, and two `export function presign...
 
 - [ ] **Step 3: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add supabase/functions/_shared/r2.ts
+git commit -m "feat: add R2 presigned-URL signing helper"
+```
 
 ---
 
@@ -355,14 +361,6 @@ async function pluginDownload(
   if (!plugin.download_asset_path) {
     throw new StorageError('No uploaded asset for this item yet', 404)
   }
-
-  const { error: bumpError } = await admin
-    .from('plugin_purchases')
-    .update({
-      download_count: undefined, // placeholder to keep shape; real increment below
-    })
-    .eq('id', purchase.id)
-  void bumpError // increment done via rpc-free read-modify-write below instead
 
   const { data: current } = await admin
     .from('plugin_purchases')
@@ -534,59 +532,7 @@ Deno.serve(async (request) => {
 })
 ```
 
-- [ ] **Step 2: Clean up the placeholder no-op in `pluginDownload`**
-
-The first draft above has a dead no-op update (`download_count: undefined`) left in from drafting — remove it. Replace the whole `pluginDownload` function body from the `const { error: bumpError } = ...` line through the `void bumpError` line with nothing, so the function reads:
-
-```typescript
-async function pluginDownload(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  body: Extract<Body, { purpose: 'plugin-download' }>,
-) {
-  const { data: purchase, error: purchaseError } = await admin
-    .from('plugin_purchases')
-    .select('id, status')
-    .eq('user_id', userId)
-    .eq('plugin_id', body.pluginId)
-    .eq('status', 'active')
-    .maybeSingle()
-  if (purchaseError) throw new StorageError(purchaseError.message, 500)
-  if (!purchase) throw new StorageError('No active license for this item', 403)
-
-  const { data: plugin, error: pluginError } = await admin
-    .from('marketplace_plugins')
-    .select('download_asset_path')
-    .eq('id', body.pluginId)
-    .single()
-  if (pluginError || !plugin) throw new StorageError('Item not found', 404)
-  if (!plugin.download_asset_path) {
-    throw new StorageError('No uploaded asset for this item yet', 404)
-  }
-
-  const { data: current } = await admin
-    .from('plugin_purchases')
-    .select('download_count')
-    .eq('id', purchase.id)
-    .single()
-  await admin
-    .from('plugin_purchases')
-    .update({
-      download_count: Number(current?.download_count ?? 0) + 1,
-      last_downloaded_at: new Date().toISOString(),
-    })
-    .eq('id', purchase.id)
-
-  const url = await presignGet(
-    requireEnv('R2_PRIVATE_BUCKET'),
-    plugin.download_asset_path,
-    300,
-  )
-  return { downloadUrl: url }
-}
-```
-
-- [ ] **Step 3: Static consistency check**
+- [ ] **Step 2: Static consistency check**
 
 Run:
 
@@ -596,9 +542,12 @@ grep -n "case '\|Deno.serve\|bodySchema.parse" supabase/functions/storage/index.
 
 Expected: four `case '...'` lines matching the four `purpose` values in `bodySchema`, one `Deno.serve` line, one `bodySchema.parse` line. This confirms the switch covers every discriminated-union member (a missing case would be a silent `undefined` response).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add supabase/functions/storage/index.ts
+git commit -m "feat: add storage Edge Function for R2 presigned URLs"
+```
 
 ---
 
@@ -902,7 +851,10 @@ Expected: PASS (no output beyond the script banner) — `src/lib/functions.ts` a
 
 - [ ] **Step 8: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add supabase/functions/admin-actions/index.ts src/lib/functions.ts src/lib/storage.ts
+git commit -m "feat: add get_plugin_upload_url admin action and storage client bridges"
+```
 
 ---
 
@@ -1312,42 +1264,6 @@ Inside the `AdminMarketplace` component, add upload state and a handler right af
     setUploadBusy(true)
     setFeedback(null)
     try {
-      const { key } = await getPluginUploadUrl(supabase, form.id, form.version, file)
-      const putResponse = await fetch(
-        (await getPluginUploadUrl(supabase, form.id, form.version, file)).uploadUrl,
-        { method: 'PUT', headers: { 'Content-Type': 'application/zip' }, body: file },
-      )
-      if (!putResponse.ok) throw new Error(`Upload failed (${putResponse.status})`)
-      setForm((p) => ({ ...p, downloadAssetPath: key }))
-      setFeedback({ kind: 'ok', text: 'ZIP uploaded — save the item to attach it.' })
-    } catch (error) {
-      setFeedback({
-        kind: 'error',
-        text: error instanceof Error ? error.message : 'ZIP upload failed',
-      })
-    } finally {
-      setUploadBusy(false)
-    }
-  }
-```
-
-Note: the double call to `getPluginUploadUrl` above is a bug from drafting (it presigns twice, wasting one call and getting two different keys). Fix it by presigning once:
-
-```typescript
-  async function handleZipSelected(fileList: FileList | null) {
-    const file = fileList?.[0]
-    if (!file || !form.id) {
-      setFeedback({ kind: 'error', text: 'Save the item once before uploading its ZIP.' })
-      return
-    }
-    if (isDemo || !supabase) {
-      setForm((p) => ({ ...p, downloadAssetPath: `demo/${file.name}` }))
-      setFeedback({ kind: 'demo' })
-      return
-    }
-    setUploadBusy(true)
-    setFeedback(null)
-    try {
       const { key, uploadUrl } = await getPluginUploadUrl(supabase, form.id, form.version, file)
       const putResponse = await fetch(uploadUrl, {
         method: 'PUT',
@@ -1417,7 +1333,10 @@ Run `npm run dev`, open `/admin/marketplace`, edit an existing item, click "Uplo
 
 - [ ] **Step 14: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add src/types/marketplace.ts src/lib/db/marketplace.ts src/lib/db/admin.ts src/data/mockAdmin.ts src/data/mockMarketplace.ts src/services/marketplaceService.ts src/pages/admin/admin-marketplace.tsx
+git commit -m "feat: real R2-backed plugin downloads with jszip demo fallback"
+```
 
 ---
 
@@ -1970,7 +1889,10 @@ Run `npm run dev`. On `/support`, open the floating widget, open a conversation,
 
 - [ ] **Step 12: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add src/lib/db/support.ts src/components/support/message-thread.tsx src/hooks/use-support-chat.ts src/components/support/chat-widget.tsx src/pages/admin/admin-support.tsx src/data/mockSupport.ts
+git commit -m "feat: add attachments to support chat messages"
+```
 
 ---
 
@@ -2281,7 +2203,10 @@ Run `npm run dev`, open `/home`, click the header profile chip, pick a small ima
 
 - [ ] **Step 14: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add src/lib/session-store.ts src/lib/session-context.tsx src/layouts/dashboard-shell.tsx supabase/functions/admin-actions/index.ts src/lib/functions.ts src/pages/admin/admin-users.tsx src/data/mockAdmin.ts
+git commit -m "feat: add avatar upload (header, own profile, admin user list)"
+```
 
 ---
 
@@ -2378,7 +2303,10 @@ Expected: no console errors in any of the six steps, and no behavior regresses f
 
 - [ ] **Step 6: Commit**
 
-(Skipped — no git repo, see Task 1 Step 4.)
+```bash
+git add README.md ARCHITECTURE.md
+git commit -m "docs: add Cloudflare R2 setup instructions"
+```
 
 ---
 
