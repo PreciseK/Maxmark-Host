@@ -52,7 +52,7 @@ export async function presignPut(
         'Content-Length': String(contentLength),
       },
     }),
-    { aws: { signQuery: true } },
+    { aws: { signQuery: true, allHeaders: true } },
   )
 
   return signed.url
