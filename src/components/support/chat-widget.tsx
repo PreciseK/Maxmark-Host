@@ -7,7 +7,9 @@ import { useSession } from '@/lib/session-store'
 import { cn, formatDateLabel } from '@/lib/utils'
 import { MessageThread } from '@/components/support/message-thread'
 import { StatusBadge, type BadgeTone } from '@/components/admin/admin-ui'
-import type { ConversationStatus } from '@/lib/db/support'
+import type { ConversationStatus, SupportMessage } from '@/lib/db/support'
+import { getChatAttachmentUrl } from '@/lib/storage'
+import { supabase } from '@/lib/supabase'
 
 const statusTone: Record<ConversationStatus, BadgeTone> = {
   open: 'green',
@@ -41,6 +43,13 @@ export function ChatWidget() {
   function backToList() {
     chat.closeConversation()
     setView('list')
+  }
+
+  async function handleOpenAttachment(message: SupportMessage) {
+    if (!message.attachment) return
+    if (isDemo || !supabase) return // demo attachments have no real URL to open
+    const url = await getChatAttachmentUrl(supabase, message.id)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function handleCreate(event: FormEvent) {
@@ -157,10 +166,13 @@ export function ChatWidget() {
 
             {view === 'thread' ? (
               <MessageThread
+                attaching={chat.attaching}
                 disabled={activeConversation?.status === 'closed'}
                 disabledHint="This case is closed — reply from the Support page to reopen it, or start a new case."
                 error={chat.error}
                 messages={chat.messages}
+                onAttach={(file) => void chat.attach(file)}
+                onOpenAttachment={(message) => void handleOpenAttachment(message)}
                 onSend={(body) => void chat.send(body)}
                 sending={chat.sending}
                 viewerRole="user"

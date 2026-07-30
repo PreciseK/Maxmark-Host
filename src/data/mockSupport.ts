@@ -58,6 +58,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_USER_ID,
       senderRole: 'user',
       body: 'Hi — my VIP plan renewal invoice is due tomorrow but our finance run is next week. Can I get a short extension?',
+      attachment: null,
       createdAt: minutesAgo(60 * 26),
     },
     {
@@ -66,6 +67,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_ADMIN_ID,
       senderRole: 'admin',
       body: 'Hello Gloria! We can definitely help with that. How much time do you need?',
+      attachment: null,
       createdAt: minutesAgo(60 * 2),
     },
     {
@@ -74,6 +76,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_USER_ID,
       senderRole: 'user',
       body: 'Thanks — could you extend the due date to next Friday?',
+      attachment: null,
       createdAt: minutesAgo(42),
     },
   ],
@@ -84,6 +87,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_USER_ID,
       senderRole: 'user',
       body: 'Our monitoring flagged possible malware on completeproperty.co.za. Can you run a scan?',
+      attachment: null,
       createdAt: minutesAgo(60 * 49),
     },
     {
@@ -92,6 +96,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_ADMIN_ID,
       senderRole: 'admin',
       body: 'On it — running a full scan now, will report back shortly.',
+      attachment: null,
       createdAt: minutesAgo(60 * 47),
     },
     {
@@ -100,6 +105,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_ADMIN_ID,
       senderRole: 'admin',
       body: 'Scan finished clean — we also hardened wp-login. Anything else?',
+      attachment: null,
       createdAt: minutesAgo(60 * 5),
     },
   ],
@@ -110,6 +116,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_USER_ID,
       senderRole: 'user',
       body: 'Customers report recaptcha blocking checkout on mobile. Can we disable it on the checkout form only?',
+      attachment: null,
       createdAt: minutesAgo(60 * 24 * 7),
     },
     {
@@ -118,6 +125,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_ADMIN_ID,
       senderRole: 'admin',
       body: 'Done — recaptcha is now skipped on /checkout while staying active on login and comments.',
+      attachment: null,
       createdAt: minutesAgo(60 * 24 * 6 - 20),
     },
     {
@@ -126,6 +134,7 @@ export const mockMessagesByConversation: Record<string, SupportMessage[]> = {
       senderId: DEMO_USER_ID,
       senderRole: 'user',
       body: 'Perfect, that fixed it. Thank you!',
+      attachment: null,
       createdAt: minutesAgo(60 * 24 * 6),
     },
   ],

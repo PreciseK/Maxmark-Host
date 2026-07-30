@@ -19,6 +19,7 @@ import {
 import { subscribeToConversationMessages } from '@/lib/support-realtime'
 import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
+import { uploadChatAttachment } from '@/lib/storage'
 
 // Customer-side chat state shared by the floating widget and /support.
 // Demo mode (no Supabase) runs entirely on mockSupport data with a canned
@@ -30,10 +31,12 @@ export interface UseSupportChat {
   activeId: string | null
   messages: SupportMessage[]
   sending: boolean
+  attaching: boolean
   error: string | null
   openConversation: (id: string) => void
   closeConversation: () => void
   send: (body: string) => Promise<void>
+  attach: (file: File) => Promise<void>
   createCase: (subject: string, body: string) => Promise<string | null>
 }
 
@@ -47,6 +50,7 @@ export function useSupportChat(): UseSupportChat {
   )
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [attaching, setAttaching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = activeId
@@ -157,6 +161,7 @@ export function useSupportChat(): UseSupportChat {
           senderId: DEMO_ADMIN_ID,
           senderRole: 'admin',
           body: cannedAdminReply,
+          attachment: null,
           createdAt: new Date().toISOString(),
         }
         appendLocal(reply)
@@ -194,6 +199,7 @@ export function useSupportChat(): UseSupportChat {
           senderId: DEMO_USER_ID,
           senderRole: 'user',
           body: trimmed,
+          attachment: null,
           createdAt: new Date().toISOString(),
         })
         scheduleDemoReply(conversationId)
@@ -208,6 +214,40 @@ export function useSupportChat(): UseSupportChat {
         setError(err instanceof Error ? err.message : 'Message failed to send')
       } finally {
         setSending(false)
+      }
+    },
+    [isDemo, session, appendLocal, scheduleDemoReply],
+  )
+
+  const attach = useCallback(
+    async (file: File) => {
+      const conversationId = activeIdRef.current
+      if (!conversationId) return
+      setError(null)
+
+      if (isDemo || !supabase || !session) {
+        appendLocal({
+          id: `demo-attach-${Date.now()}`,
+          conversationId,
+          senderId: DEMO_USER_ID,
+          senderRole: 'user',
+          body: '',
+          attachment: { key: `demo/${file.name}`, name: file.name, size: file.size, type: file.type },
+          createdAt: new Date().toISOString(),
+        })
+        scheduleDemoReply(conversationId)
+        return
+      }
+
+      setAttaching(true)
+      try {
+        const uploaded = await uploadChatAttachment(supabase, conversationId, file)
+        const message = await sendMessage(supabase, conversationId, '', uploaded)
+        appendLocal(message)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Attachment upload failed')
+      } finally {
+        setAttaching(false)
       }
     },
     [isDemo, session, appendLocal, scheduleDemoReply],
@@ -247,6 +287,7 @@ export function useSupportChat(): UseSupportChat {
               senderId: DEMO_USER_ID,
               senderRole: 'user',
               body: trimmedBody,
+              attachment: null,
               createdAt: now,
             },
           ],
@@ -282,10 +323,12 @@ export function useSupportChat(): UseSupportChat {
     activeId,
     messages: activeId ? (messagesByConv[activeId] ?? []) : [],
     sending,
+    attaching,
     error,
     openConversation,
     closeConversation,
     send,
+    attach,
     createCase,
   }
 }

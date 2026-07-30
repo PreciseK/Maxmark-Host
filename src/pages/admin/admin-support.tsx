@@ -19,6 +19,7 @@ import {
 } from '@/lib/support-realtime'
 import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
+import { uploadChatAttachment, getChatAttachmentUrl } from '@/lib/storage'
 import { cn, formatDateLabel } from '@/lib/utils'
 import { MessageThread } from '@/components/support/message-thread'
 import {
@@ -54,6 +55,7 @@ export function AdminSupport() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [sending, setSending] = useState(false)
+  const [attaching, setAttaching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDemoNotice, setShowDemoNotice] = useState(false)
 
@@ -171,32 +173,32 @@ export function AdminSupport() {
     }
   }
 
+  const applyLocal = useCallback((message: SupportMessage) => {
+    setMessagesByConv((prev) => {
+      const existing = prev[message.conversationId] ?? []
+      if (existing.some((m) => m.id === message.id)) return prev
+      return { ...prev, [message.conversationId]: [...existing, message] }
+    })
+    setConversations((prev) =>
+      prev
+        .map((c) =>
+          c.id === message.conversationId
+            ? {
+                ...c,
+                lastMessageAt: message.createdAt,
+                lastMessagePreview: message.body.slice(0, 120),
+                status: c.status === 'open' ? ('pending' as const) : c.status,
+              }
+            : c,
+        )
+        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)),
+    )
+  }, [])
+
   async function handleSend(body: string) {
     const conversationId = activeIdRef.current
     if (!conversationId) return
     setError(null)
-
-    const applyLocal = (message: SupportMessage) => {
-      setMessagesByConv((prev) => {
-        const existing = prev[message.conversationId] ?? []
-        if (existing.some((m) => m.id === message.id)) return prev
-        return { ...prev, [message.conversationId]: [...existing, message] }
-      })
-      setConversations((prev) =>
-        prev
-          .map((c) =>
-            c.id === conversationId
-              ? {
-                  ...c,
-                  lastMessageAt: message.createdAt,
-                  lastMessagePreview: message.body.slice(0, 120),
-                  status: c.status === 'open' ? ('pending' as const) : c.status,
-                }
-              : c,
-          )
-          .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)),
-      )
-    }
 
     if (isDemo || !supabase || !session) {
       applyLocal({
@@ -205,6 +207,7 @@ export function AdminSupport() {
         senderId: DEMO_ADMIN_ID,
         senderRole: 'admin',
         body,
+        attachment: null,
         createdAt: new Date().toISOString(),
       })
       setShowDemoNotice(true)
@@ -220,6 +223,44 @@ export function AdminSupport() {
     } finally {
       setSending(false)
     }
+  }
+
+  async function handleAttach(file: File) {
+    const conversationId = activeIdRef.current
+    if (!conversationId) return
+    setError(null)
+
+    if (isDemo || !supabase || !session) {
+      applyLocal({
+        id: `demo-admin-attach-${Date.now()}`,
+        conversationId,
+        senderId: DEMO_ADMIN_ID,
+        senderRole: 'admin',
+        body: '',
+        attachment: { key: `demo/${file.name}`, name: file.name, size: file.size, type: file.type },
+        createdAt: new Date().toISOString(),
+      })
+      setShowDemoNotice(true)
+      return
+    }
+
+    setAttaching(true)
+    try {
+      const uploaded = await uploadChatAttachment(supabase, conversationId, file)
+      const message = await sendMessage(supabase, conversationId, '', uploaded)
+      applyLocal(message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Attachment upload failed')
+    } finally {
+      setAttaching(false)
+    }
+  }
+
+  async function handleOpenAttachment(message: SupportMessage) {
+    if (!message.attachment) return
+    if (isDemo || !supabase) return
+    const url = await getChatAttachmentUrl(supabase, message.id)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function handleStatusChange(status: ConversationStatus) {
@@ -344,8 +385,11 @@ export function AdminSupport() {
                 </select>
               </div>
               <MessageThread
+                attaching={attaching}
                 error={error}
                 messages={activeMessages}
+                onAttach={(file) => void handleAttach(file)}
+                onOpenAttachment={(message) => void handleOpenAttachment(message)}
                 onSend={(body) => void handleSend(body)}
                 sending={sending}
                 viewerRole="admin"

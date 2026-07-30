@@ -15,12 +15,20 @@ export interface SupportConversation {
   createdAt: string
 }
 
+export interface SupportMessageAttachment {
+  key: string
+  name: string
+  size: number
+  type: string
+}
+
 export interface SupportMessage {
   id: string
   conversationId: string
   senderId: string
   senderRole: SenderRole
   body: string
+  attachment: SupportMessageAttachment | null
   createdAt: string
 }
 
@@ -47,6 +55,14 @@ export function mapMessage(r: Row): SupportMessage {
     senderId: r.sender_id as string,
     senderRole: r.sender_role as SenderRole,
     body: r.body as string,
+    attachment: r.attachment_key
+      ? {
+          key: r.attachment_key as string,
+          name: r.attachment_name as string,
+          size: Number(r.attachment_size),
+          type: r.attachment_type as string,
+        }
+      : null,
     createdAt: r.created_at as string,
   }
 }
@@ -99,10 +115,22 @@ export async function sendMessage(
   supabase: SupabaseClient,
   conversationId: string,
   body: string,
+  attachment?: SupportMessageAttachment,
 ): Promise<SupportMessage> {
   const { data, error } = await supabase
     .from('support_messages')
-    .insert({ conversation_id: conversationId, body })
+    .insert({
+      conversation_id: conversationId,
+      body,
+      ...(attachment
+        ? {
+            attachment_key: attachment.key,
+            attachment_name: attachment.name,
+            attachment_size: attachment.size,
+            attachment_type: attachment.type,
+          }
+        : {}),
+    })
     .select()
     .single()
   if (error) throw error

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { SendHorizontal } from 'lucide-react'
+import { Paperclip, SendHorizontal } from 'lucide-react'
 
 import type { SenderRole, SupportMessage } from '@/lib/db/support'
 import { cn, formatDateLabel } from '@/lib/utils'
@@ -9,7 +9,10 @@ interface MessageThreadProps {
   /** Which side the viewer is on — their messages render right-aligned. */
   viewerRole: SenderRole
   onSend: (body: string) => void
+  onAttach?: (file: File) => void
+  onOpenAttachment?: (message: SupportMessage) => void
   sending?: boolean
+  attaching?: boolean
   disabled?: boolean
   disabledHint?: string
   error?: string | null
@@ -19,13 +22,17 @@ export function MessageThread({
   messages,
   viewerRole,
   onSend,
+  onAttach,
+  onOpenAttachment,
   sending = false,
+  attaching = false,
   disabled = false,
   disabledHint,
   error,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const el = scrollRef.current
@@ -60,6 +67,24 @@ export function MessageThread({
               >
                 {message.body}
               </div>
+              {message.attachment ? (
+                <button
+                  className={cn(
+                    'flex items-center gap-1.5 mt-1 px-2.5 py-1.5 rounded-md text-[11px] border transition',
+                    isOwn
+                      ? 'border-[#5c4df0]/40 bg-[#5c4df0]/10 text-[#a89cf7] hover:bg-[#5c4df0]/20'
+                      : 'border-[#2d2d34] bg-[#1c1c1f] text-white hover:bg-[#232328]',
+                  )}
+                  onClick={() => onOpenAttachment?.(message)}
+                  type="button"
+                >
+                  <Paperclip className="h-3 w-3 shrink-0" />
+                  <span className="truncate max-w-[160px]">{message.attachment.name}</span>
+                  <span className="text-muted-foreground shrink-0">
+                    {Math.round(message.attachment.size / 1024)} KB
+                  </span>
+                </button>
+              ) : null}
               <span className="text-[10px] text-muted-foreground mt-1">
                 {message.senderRole === 'admin' ? 'Maxmark Support · ' : ''}
                 {formatDateLabel(message.createdAt)}
@@ -89,6 +114,29 @@ export function MessageThread({
           className="flex items-end gap-2 border-t border-[#232328] bg-[#121214] px-3 py-3"
           onSubmit={handleSubmit}
         >
+          {onAttach ? (
+            <>
+              <input
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) onAttach(file)
+                  event.target.value = ''
+                }}
+                ref={fileInputRef}
+                type="file"
+              />
+              <button
+                aria-label="Attach a file"
+                className="h-[38px] w-[38px] shrink-0 flex items-center justify-center bg-[#1c1c1f] hover:bg-[#232328] border border-[#2d2d34] rounded-md text-muted-foreground hover:text-white transition disabled:opacity-50"
+                disabled={attaching}
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
           <textarea
             className="flex-1 bg-[#1c1c1f] border border-[#2d2d34] rounded-md px-3 py-2 text-xs text-white placeholder:text-muted-foreground focus:outline-none focus:border-[#5c4df0]/50 transition-colors resize-none h-[38px] max-h-28"
             onChange={(event) => setDraft(event.target.value)}
