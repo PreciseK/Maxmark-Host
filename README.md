@@ -33,6 +33,46 @@ To go live:
 
 Admin reads use RLS (`is_admin()` SELECT policies); all admin writes go through `admin-actions` and land in `admin_audit_log`.
 
+## Cloudflare R2 setup
+
+Storage (marketplace ZIPs, chat attachments, avatars) uses two R2 buckets accessed via presigned URLs from Supabase Edge Functions. Nothing works until this is configured — until then, marketplace downloads use the built-in jszip mock, chat attachments/avatars are local-preview only.
+
+1. In the Cloudflare dashboard, create two R2 buckets: `maxmark-private` and `maxmark-public`.
+2. Enable public access on `maxmark-public` (custom domain or the `r2.dev` subdomain) and note the base URL.
+3. Create one R2 API token scoped to Object Read & Write on both buckets. Note the Access Key ID and Secret Access Key.
+4. Apply this CORS policy to both buckets (Cloudflare dashboard → bucket → Settings → CORS Policy), substituting your actual app origin(s):
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://your-app-domain.example", "http://localhost:5173"],
+       "AllowedMethods": ["GET", "PUT"],
+       "AllowedHeaders": ["Content-Type", "Content-Length"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+5. Set the Edge Function secrets:
+
+   ```bash
+   supabase secrets set R2_ACCOUNT_ID=<your-account-id>
+   supabase secrets set R2_ACCESS_KEY_ID=<key-id>
+   supabase secrets set R2_SECRET_ACCESS_KEY=<secret>
+   supabase secrets set R2_PRIVATE_BUCKET=maxmark-private
+   supabase secrets set R2_PUBLIC_BUCKET=maxmark-public
+   supabase secrets set R2_PUBLIC_BASE_URL=<public bucket base URL from step 2>
+   ```
+
+6. Deploy the new/updated functions:
+
+   ```bash
+   supabase functions deploy storage
+   supabase functions deploy admin-actions
+   ```
+
+7. Run `migrations/004_r2_storage.sql` against your database (or re-run `schema.sql`, which is idempotent and includes the same columns).
+
 ---
 
 ## Vite template notes (React + TypeScript + Vite)

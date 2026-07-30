@@ -450,6 +450,8 @@ A role-guarded operations console living in the same app, lazy-loaded as one chu
 - **Admin writes** go exclusively through the `admin-actions` Edge Function (`supabase/functions/admin-actions/index.ts`): JWT → service-role check of `user_roles` → Zod discriminated union on `action` → service-role write → `admin_audit_log` insert. Actions: `list_users` (the one read that needs `auth.users`), `adjust_credit`, `set_site_status`, `create_node`, `update_node`, `create_invoice`, `set_invoice_status`, `upsert_plugin`, `set_purchase_status`, `set_conversation_status`. Client bridge: `adminAction()` in `src/lib/functions.ts`.
 - `admin_audit_log` is append-only (service role writes, admin-only SELECT) and rendered at `/admin/audit`.
 
+The same posture extends to object storage: the browser never gets direct R2 credentials — the `storage` Edge Function authorizes each upload/download (license ownership, conversation membership, or "it's your own avatar") and hands back a single short-lived presigned URL scoped to one object key.
+
 ### Session & guard
 
 `SessionProvider` (`src/lib/session-context.tsx`, hook in `src/lib/session-store.ts`) resolves `{ session, isAdmin, isDemo, roleResolved }` plus the support unread badges. `AdminRoute` gates the tree: **demo mode (no env vars) renders freely from mocks** — consistent with mock-first rendering, so a real deployment must set env vars; with Supabase configured, no session → `/login`, non-admin → `/home`.
