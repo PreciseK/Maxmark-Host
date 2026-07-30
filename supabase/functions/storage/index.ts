@@ -174,6 +174,10 @@ async function chatAttachmentDownload(
   if (error || !message || !message.attachment_key) {
     throw new StorageError('Attachment not found', 404)
   }
+  const prefix = `support/${message.conversation_id}/`
+  if (!String(message.attachment_key).startsWith(prefix)) {
+    throw new StorageError('Attachment not found', 404)
+  }
   const ownerId = (
     message.support_conversations as unknown as { user_id: string }
   ).user_id
@@ -200,7 +204,7 @@ async function avatarUpload(
     body.contentLength,
     600,
   )
-  const publicUrl = `${requireEnv('R2_PUBLIC_BASE_URL').replace(/\/$/, '')}/${key}`
+  const publicUrl = `${requireEnv('R2_PUBLIC_BASE_URL').replace(/\/$/, '')}/${key}?v=${Date.now()}`
   return { uploadUrl, publicUrl }
 }
 

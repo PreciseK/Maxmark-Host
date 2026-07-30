@@ -27,7 +27,7 @@ export interface MarketplacePlugin {
   installsLabel: string
   gradient: string
   highlights: string[]
-  downloadAssetPath: string | null
+  hasDownloadAsset: boolean
 }
 
 export type PluginPurchaseStatus = 'active' | 'refunded' | 'revoked'

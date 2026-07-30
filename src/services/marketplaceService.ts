@@ -197,7 +197,7 @@ export async function downloadMarketplacePlugin(
   plugin: MarketplacePlugin,
   purchase: PluginPurchase,
 ) {
-  if (plugin.downloadAssetPath && supabase) {
+  if (plugin.hasDownloadAsset && supabase) {
     const {
       data: { session },
     } = await supabase.auth.getSession()

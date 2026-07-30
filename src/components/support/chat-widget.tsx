@@ -29,6 +29,7 @@ export function ChatWidget() {
   const [view, setView] = useState<'list' | 'thread' | 'new'>('list')
   const [subject, setSubject] = useState('')
   const [firstMessage, setFirstMessage] = useState('')
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   // Without a session (and outside demo mode) there is nobody to chat as.
   if (!isDemo && !session) return null
@@ -47,9 +48,14 @@ export function ChatWidget() {
 
   async function handleOpenAttachment(message: SupportMessage) {
     if (!message.attachment) return
-    if (isDemo || !supabase) return // demo attachments have no real URL to open
-    const url = await getChatAttachmentUrl(supabase, message.id)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    if (isDemo || !supabase || !session) return // demo attachments have no real URL to open
+    setAttachmentError(null)
+    try {
+      const url = await getChatAttachmentUrl(supabase, message.id)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      setAttachmentError(err instanceof Error ? err.message : 'Unable to open attachment')
+    }
   }
 
   async function handleCreate(event: FormEvent) {
@@ -169,7 +175,7 @@ export function ChatWidget() {
                 attaching={chat.attaching}
                 disabled={activeConversation?.status === 'closed'}
                 disabledHint="This case is closed — reply from the Support page to reopen it, or start a new case."
-                error={chat.error}
+                error={attachmentError ?? chat.error}
                 messages={chat.messages}
                 onAttach={(file) => void chat.attach(file)}
                 onOpenAttachment={(message) => void handleOpenAttachment(message)}

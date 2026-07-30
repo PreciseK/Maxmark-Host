@@ -25,7 +25,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Automatic WooCommerce exclusion rules',
       'One-click warmup after deploy',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
   {
     id: 'plugin-checkout-forge',
@@ -51,7 +51,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Order bump analytics',
       'Post-purchase offer routing',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
   {
     id: 'plugin-seo-canvas',
@@ -77,7 +77,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Internal linking suggestions',
       'SERP preview composer',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
   {
     id: 'plugin-shield-ops',
@@ -103,7 +103,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Risk-based login hardening',
       'Daily security digest',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
   {
     id: 'theme-atelier-noir',
@@ -129,7 +129,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Display typography presets',
       'Dark-room color palettes',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
   {
     id: 'theme-storefront-lux',
@@ -155,7 +155,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Editorial product page blocks',
       'Checkout-optimized templates',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
   {
     id: 'theme-editorial-prime',
@@ -181,7 +181,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Newsroom article templates',
       'Reading-experience tuning',
     ],
-    downloadAssetPath: null,
+    hasDownloadAsset: false,
   },
 ]
 

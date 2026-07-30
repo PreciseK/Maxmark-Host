@@ -375,7 +375,11 @@ as $$
 begin
   update public.support_conversations
   set last_message_at = new.created_at,
-      last_message_preview = left(new.body, 120),
+      last_message_preview = case
+        when new.body = '' and new.attachment_key is not null
+          then '📎 ' || coalesce(new.attachment_name, 'Attachment')
+        else left(new.body, 120)
+      end,
       user_unread_count = user_unread_count
         + case when new.sender_role = 'admin' then 1 else 0 end,
       admin_unread_count = admin_unread_count

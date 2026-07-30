@@ -143,7 +143,11 @@ export function useSupportChat(): UseSupportChat {
             ? {
                 ...c,
                 lastMessageAt: message.createdAt,
-                lastMessagePreview: message.body.slice(0, 120),
+                lastMessagePreview: message.body
+                  ? message.body.slice(0, 120)
+                  : message.attachment
+                    ? `📎 ${message.attachment.name}`
+                    : '',
                 status: message.senderRole === 'user' ? ('open' as const) : c.status,
               }
             : c,

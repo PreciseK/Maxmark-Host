@@ -186,7 +186,11 @@ export function AdminSupport() {
             ? {
                 ...c,
                 lastMessageAt: message.createdAt,
-                lastMessagePreview: message.body.slice(0, 120),
+                lastMessagePreview: message.body
+                  ? message.body.slice(0, 120)
+                  : message.attachment
+                    ? `📎 ${message.attachment.name}`
+                    : '',
                 status: c.status === 'open' ? ('pending' as const) : c.status,
               }
             : c,
@@ -258,9 +262,14 @@ export function AdminSupport() {
 
   async function handleOpenAttachment(message: SupportMessage) {
     if (!message.attachment) return
-    if (isDemo || !supabase) return
-    const url = await getChatAttachmentUrl(supabase, message.id)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    if (isDemo || !supabase || !session) return
+    setError(null)
+    try {
+      const url = await getChatAttachmentUrl(supabase, message.id)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to open attachment')
+    }
   }
 
   async function handleStatusChange(status: ConversationStatus) {

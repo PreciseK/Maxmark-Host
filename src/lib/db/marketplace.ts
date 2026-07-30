@@ -64,7 +64,7 @@ function mapDbPluginToMarketplacePlugin(row: DbPluginRow): MarketplacePlugin {
     installsLabel: row.installs_label,
     gradient: row.gradient,
     highlights: Array.isArray(row.highlights) ? row.highlights : [],
-    downloadAssetPath: row.download_asset_path,
+    hasDownloadAsset: row.download_asset_path !== null,
   }
 }
 
