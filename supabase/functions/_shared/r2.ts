@@ -28,6 +28,10 @@ function bucketEndpoint(bucket: string): string {
   return `https://${accountId}.r2.cloudflarestorage.com/${bucket}`
 }
 
+function encodeKeyPath(key: string): string {
+  return key.split('/').map(encodeURIComponent).join('/')
+}
+
 /**
  * Presign a PUT for a browser to upload directly to R2. Content-Length is
  * signed into the URL so R2 rejects any upload that doesn't match the
@@ -41,7 +45,7 @@ export async function presignPut(
   expiresInSeconds: number,
 ): Promise<string> {
   const client = getR2Client()
-  const url = new URL(`${bucketEndpoint(bucket)}/${key}`)
+  const url = new URL(`${bucketEndpoint(bucket)}/${encodeKeyPath(key)}`)
   url.searchParams.set('X-Amz-Expires', String(expiresInSeconds))
 
   const signed = await client.sign(
@@ -65,7 +69,7 @@ export async function presignGet(
   expiresInSeconds: number,
 ): Promise<string> {
   const client = getR2Client()
-  const url = new URL(`${bucketEndpoint(bucket)}/${key}`)
+  const url = new URL(`${bucketEndpoint(bucket)}/${encodeKeyPath(key)}`)
   url.searchParams.set('X-Amz-Expires', String(expiresInSeconds))
 
   const signed = await client.sign(new Request(url, { method: 'GET' }), {
