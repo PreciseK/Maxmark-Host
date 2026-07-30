@@ -123,10 +123,11 @@ export function DashboardShell() {
     setAvatarBusy(true)
     try {
       const publicUrl = await uploadAvatar(supabase, file)
-      await supabase
+      const { error } = await supabase
         .from('user_profiles')
         .update({ avatar_url: publicUrl })
         .eq('user_id', session.user.id)
+      if (error) throw error
       setAvatarUrl(publicUrl)
     } catch (error) {
       console.warn('Avatar upload failed:', error)
