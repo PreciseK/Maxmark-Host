@@ -216,6 +216,12 @@ create table if not exists public.marketplace_plugins (
   gradient text not null default '',
   highlights jsonb not null default '[]',
   download_asset_path text,
+  -- Derived, stored server-side so customer-facing queries can select this
+  -- boolean instead of the raw R2 key in download_asset_path (see
+  -- src/lib/db/marketplace.ts's fetchPlugins for why: the app never wants
+  -- to send real object-storage paths to a browser that hasn't purchased
+  -- the item).
+  has_download_asset boolean generated always as (download_asset_path is not null) stored,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint marketplace_plugins_price_nonnegative check (price_ngn >= 0),

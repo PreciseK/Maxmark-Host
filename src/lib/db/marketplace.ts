@@ -28,7 +28,7 @@ interface DbPluginRow {
   gradient: string
   highlights: string[]
   status: string
-  download_asset_path: string | null
+  has_download_asset: boolean
 }
 
 interface DbPurchaseRow {
@@ -64,7 +64,18 @@ function mapDbPluginToMarketplacePlugin(row: DbPluginRow): MarketplacePlugin {
     installsLabel: row.installs_label,
     gradient: row.gradient,
     highlights: Array.isArray(row.highlights) ? row.highlights : [],
-    hasDownloadAsset: row.download_asset_path !== null,
+    // download_asset_path (the raw R2 key) is deliberately excluded from
+    // fetchPlugins' select() so the customer-facing response never carries
+    // it — has_download_asset is a server-computed boolean column instead
+    // (see migrations/006_marketplace_asset_flag.sql). A determined caller
+    // could still request download_asset_path directly via PostgREST (RLS
+    // is row-level, not column-level); closing that fully needs a Postgres
+    // column-grant restriction or a customer-safe view — not done here
+    // because Fix 1 (encodeKeyPath hardening in supabase/functions/_shared
+    // /r2.ts) already removes any way to turn a known key into a working
+    // presigned URL without passing a real ownership/purchase check, which
+    // is this codebase's actual authorization boundary.
+    hasDownloadAsset: row.has_download_asset,
   }
 }
 
@@ -87,7 +98,12 @@ export function mapDbPurchaseToPluginPurchase(row: DbPurchaseRow): PluginPurchas
 export async function fetchPlugins(supabase: SupabaseClient): Promise<MarketplacePlugin[]> {
   const { data, error } = await supabase
     .from('marketplace_plugins')
-    .select('*')
+    // download_asset_path (the raw R2 key) is deliberately excluded here —
+    // has_download_asset (a server-computed boolean) is selected instead.
+    // See the comment on hasDownloadAsset in the mapper below.
+    .select(
+      'id, slug, name, tagline, description, category, product_type, tier, version, requires_wordpress, requires_php, price_ngn, featured, rating, installs_label, gradient, highlights, status, has_download_asset, created_at, updated_at',
+    )
     .eq('status', 'active')
     .order('featured', { ascending: false })
     .order('created_at', { ascending: true })

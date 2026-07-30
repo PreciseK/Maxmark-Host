@@ -29,7 +29,11 @@ function bucketEndpoint(bucket: string): string {
 }
 
 function encodeKeyPath(key: string): string {
-  return key.split('/').map(encodeURIComponent).join('/')
+  const segments = key.split('/')
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
+    throw new Error('Invalid R2 key: empty or traversal path segment not allowed')
+  }
+  return segments.map(encodeURIComponent).join('/')
 }
 
 /**
