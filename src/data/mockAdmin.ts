@@ -532,6 +532,7 @@ export const mockAdminPlugins: AdminPluginRow[] = [
     featured: true,
     rating: 4.8,
     installsLabel: '12k+ installs',
+    downloadAssetPath: null,
     createdAt: daysAgo(300),
   },
   {
@@ -551,6 +552,7 @@ export const mockAdminPlugins: AdminPluginRow[] = [
     featured: false,
     rating: 4.6,
     installsLabel: '8k+ installs',
+    downloadAssetPath: null,
     createdAt: daysAgo(260),
   },
   {
@@ -570,6 +572,7 @@ export const mockAdminPlugins: AdminPluginRow[] = [
     featured: false,
     rating: 0,
     installsLabel: '',
+    downloadAssetPath: null,
     createdAt: daysAgo(12),
   },
 ]

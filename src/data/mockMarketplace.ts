@@ -25,6 +25,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Automatic WooCommerce exclusion rules',
       'One-click warmup after deploy',
     ],
+    downloadAssetPath: null,
   },
   {
     id: 'plugin-checkout-forge',
@@ -50,6 +51,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Order bump analytics',
       'Post-purchase offer routing',
     ],
+    downloadAssetPath: null,
   },
   {
     id: 'plugin-seo-canvas',
@@ -75,6 +77,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Internal linking suggestions',
       'SERP preview composer',
     ],
+    downloadAssetPath: null,
   },
   {
     id: 'plugin-shield-ops',
@@ -100,6 +103,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Risk-based login hardening',
       'Daily security digest',
     ],
+    downloadAssetPath: null,
   },
   {
     id: 'theme-atelier-noir',
@@ -125,6 +129,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Display typography presets',
       'Dark-room color palettes',
     ],
+    downloadAssetPath: null,
   },
   {
     id: 'theme-storefront-lux',
@@ -150,6 +155,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Editorial product page blocks',
       'Checkout-optimized templates',
     ],
+    downloadAssetPath: null,
   },
   {
     id: 'theme-editorial-prime',
@@ -175,6 +181,7 @@ export const marketplacePlugins: MarketplacePlugin[] = [
       'Newsroom article templates',
       'Reading-experience tuning',
     ],
+    downloadAssetPath: null,
   },
 ]
 

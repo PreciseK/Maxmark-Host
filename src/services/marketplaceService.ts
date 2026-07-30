@@ -6,6 +6,7 @@ import {
   isPaystackConfigured,
   openPaystackCheckout,
 } from '@/lib/paystack'
+import { getPluginDownloadUrl } from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
 import type { UserMarketplaceTier } from '@/lib/tiers'
 import type { MarketplacePlugin, PluginPurchase } from '@/types/marketplace'
@@ -196,6 +197,27 @@ export async function downloadMarketplacePlugin(
   plugin: MarketplacePlugin,
   purchase: PluginPurchase,
 ) {
+  if (plugin.downloadAssetPath && supabase) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (session) {
+      const downloadUrl = await getPluginDownloadUrl(supabase, plugin.id)
+      window.location.assign(downloadUrl)
+      const downloadedAt = new Date().toISOString()
+      return {
+        fileName: `${plugin.slug}-${plugin.version}.zip`,
+        archiveBytes: 0,
+        purchase: {
+          ...purchase,
+          lastDownloadedAt: downloadedAt,
+          updatedAt: downloadedAt,
+          downloadCount: purchase.downloadCount + 1,
+        } satisfies PluginPurchase,
+      }
+    }
+  }
+
   const zip = new JSZip()
   const pluginFolder = zip.folder(plugin.slug)
 

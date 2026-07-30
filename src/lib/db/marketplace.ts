@@ -28,6 +28,7 @@ interface DbPluginRow {
   gradient: string
   highlights: string[]
   status: string
+  download_asset_path: string | null
 }
 
 interface DbPurchaseRow {
@@ -63,6 +64,7 @@ function mapDbPluginToMarketplacePlugin(row: DbPluginRow): MarketplacePlugin {
     installsLabel: row.installs_label,
     gradient: row.gradient,
     highlights: Array.isArray(row.highlights) ? row.highlights : [],
+    downloadAssetPath: row.download_asset_path,
   }
 }
 

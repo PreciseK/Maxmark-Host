@@ -146,6 +146,7 @@ export interface AdminPluginRow {
   featured: boolean
   rating: number
   installsLabel: string
+  downloadAssetPath: string | null
   createdAt: string
 }
 
@@ -433,6 +434,7 @@ export async function fetchAdminPlugins(supabase: SupabaseClient): Promise<Admin
     featured: r.featured as boolean,
     rating: Number(r.rating),
     installsLabel: r.installs_label as string,
+    downloadAssetPath: (r.download_asset_path as string | null) ?? null,
     createdAt: r.created_at as string,
   }))
 }

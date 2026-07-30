@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Star } from 'lucide-react'
+import { Plus, Star, Upload } from 'lucide-react'
 
 import { mockAdminPlugins, mockAdminPurchases, mockAdminUsers } from '@/data/mockAdmin'
 import {
@@ -12,6 +12,7 @@ import {
   type AdminPurchaseRow,
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
+import { getPluginUploadUrl } from '@/lib/storage'
 import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
@@ -58,6 +59,7 @@ interface PluginFormState {
   status: 'active' | 'draft'
   featured: boolean
   installsLabel: string
+  downloadAssetPath: string | null
 }
 
 const emptyPluginForm: PluginFormState = {
@@ -76,6 +78,7 @@ const emptyPluginForm: PluginFormState = {
   status: 'draft',
   featured: false,
   installsLabel: '',
+  downloadAssetPath: null,
 }
 
 function formFromPlugin(plugin: AdminPluginRow): PluginFormState {
@@ -95,6 +98,7 @@ function formFromPlugin(plugin: AdminPluginRow): PluginFormState {
     status: plugin.status,
     featured: plugin.featured,
     installsLabel: plugin.installsLabel,
+    downloadAssetPath: plugin.downloadAssetPath,
   }
 }
 
@@ -116,6 +120,7 @@ function mapFunctionPlugin(row: Record<string, unknown>): AdminPluginRow {
     featured: row.featured as boolean,
     rating: Number(row.rating ?? 0),
     installsLabel: (row.installs_label as string) ?? '',
+    downloadAssetPath: (row.download_asset_path as string | null) ?? null,
     createdAt: row.created_at as string,
   }
 }
@@ -131,6 +136,41 @@ export function AdminMarketplace() {
   const [feedback, setFeedback] = useState<{ kind: 'demo' | 'error' | 'ok'; text?: string } | null>(
     null,
   )
+  const [uploadBusy, setUploadBusy] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  async function handleZipSelected(fileList: FileList | null) {
+    const file = fileList?.[0]
+    if (!file || !form.id) {
+      setFeedback({ kind: 'error', text: 'Save the item once before uploading its ZIP.' })
+      return
+    }
+    if (isDemo || !supabase) {
+      setForm((p) => ({ ...p, downloadAssetPath: `demo/${file.name}` }))
+      setFeedback({ kind: 'demo' })
+      return
+    }
+    setUploadBusy(true)
+    setFeedback(null)
+    try {
+      const { key, uploadUrl } = await getPluginUploadUrl(supabase, form.id, form.version, file)
+      const putResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/zip' },
+        body: file,
+      })
+      if (!putResponse.ok) throw new Error(`Upload failed (${putResponse.status})`)
+      setForm((p) => ({ ...p, downloadAssetPath: key }))
+      setFeedback({ kind: 'ok', text: 'ZIP uploaded — save the item to attach it.' })
+    } catch (error) {
+      setFeedback({
+        kind: 'error',
+        text: error instanceof Error ? error.message : 'ZIP upload failed',
+      })
+    } finally {
+      setUploadBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!supabase) return
@@ -186,6 +226,7 @@ export function AdminMarketplace() {
       status: state.status,
       featured: state.featured,
       installsLabel: state.installsLabel.trim(),
+      downloadAssetPath: state.downloadAssetPath ?? undefined,
     }
   }
 
@@ -223,6 +264,7 @@ export function AdminMarketplace() {
         status: state.status,
         featured: state.featured,
         installsLabel: state.installsLabel.trim(),
+        downloadAssetPath: state.downloadAssetPath,
       })
       if (state.id) {
         setPlugins((prev) => prev.map((p) => (p.id === state.id ? fromForm(p) : p)))
@@ -712,6 +754,34 @@ export function AdminMarketplace() {
                 />
                 Featured
               </label>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={fieldLabelClass}>Plugin/theme ZIP</label>
+              <div className="flex items-center gap-3">
+                <input
+                  accept=".zip"
+                  className="hidden"
+                  onChange={(e) => void handleZipSelected(e.target.files)}
+                  ref={fileInputRef}
+                  type="file"
+                />
+                <button
+                  className={secondaryButtonClass}
+                  disabled={uploadBusy || !form.id}
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                >
+                  <Upload className="h-3.5 w-3.5 inline mr-1.5" />
+                  {uploadBusy ? 'Uploading…' : 'Upload ZIP'}
+                </button>
+                <span className="text-[11px] text-muted-foreground truncate">
+                  {form.downloadAssetPath
+                    ? form.downloadAssetPath.split('/').pop()
+                    : form.id
+                      ? 'No asset uploaded yet — downloads use the demo mock.'
+                      : 'Save the item first to enable uploads.'}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>
