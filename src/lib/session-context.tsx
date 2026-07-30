@@ -9,6 +9,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const isDemo = supabase === null
   const [session, setSession] = useState<Session | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [roleResolved, setRoleResolved] = useState(isDemo)
   const [supportUnread, setSupportUnread] = useState(0)
   const [adminSupportUnread, setAdminSupportUnread] = useState(0)
@@ -23,22 +24,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!next) {
         if (!cancelled) {
           setIsAdmin(false)
+          setAvatarUrl(null)
           setRoleResolved(true)
         }
         return
       }
       try {
-        const { data, error } = await sb
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', next.user.id)
-          .eq('role', 'admin')
-          .limit(1)
-        if (error) throw error
-        if (!cancelled) setIsAdmin((data?.length ?? 0) > 0)
+        const [roleRes, profileRes] = await Promise.all([
+          sb
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', next.user.id)
+            .eq('role', 'admin')
+            .limit(1),
+          sb.from('user_profiles').select('avatar_url').eq('user_id', next.user.id).maybeSingle(),
+        ])
+        if (roleRes.error) throw roleRes.error
+        if (!cancelled) {
+          setIsAdmin((roleRes.data?.length ?? 0) > 0)
+          setAvatarUrl((profileRes.data?.avatar_url as string | null | undefined) ?? null)
+        }
       } catch (error) {
         console.warn('Admin role lookup failed; treating as non-admin:', error)
-        if (!cancelled) setIsAdmin(false)
+        if (!cancelled) {
+          setIsAdmin(false)
+          setAvatarUrl(null)
+        }
       } finally {
         if (!cancelled) setRoleResolved(true)
       }
@@ -111,6 +122,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         session,
         isAdmin,
         isDemo,
+        avatarUrl,
+        setAvatarUrl,
         roleResolved,
         supportUnread,
         setSupportUnread,

@@ -24,7 +24,9 @@ const PAGE_SIZE = 25
 
 export function AdminUsers() {
   const navigate = useNavigate()
-  const [users, setUsers] = useState<AdminListedUser[]>(mockAdminUsers)
+  const [users, setUsers] = useState<AdminListedUser[]>(
+    mockAdminUsers.map((u) => ({ ...u, avatarUrl: null })),
+  )
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
@@ -48,6 +50,7 @@ export function AdminUsers() {
               profiles.map((p) => ({
                 ...p,
                 email: '',
+                avatarUrl: null,
                 lastSignInAt: null,
                 siteCount: 0,
                 planCount: 0,
@@ -157,12 +160,27 @@ export function AdminUsers() {
                 }
               >
                 <td className={cellClass}>
-                  <p className="font-semibold text-white">
-                    {user.displayName || user.email || 'Unnamed account'}
-                  </p>
-                  {user.email ? (
-                    <p className="text-muted-foreground mt-0.5">{user.email}</p>
-                  ) : null}
+                  <div className="flex items-center gap-2.5">
+                    {user.avatarUrl ? (
+                      <img
+                        alt=""
+                        className="h-7 w-7 rounded-full object-cover shrink-0"
+                        src={user.avatarUrl}
+                      />
+                    ) : (
+                      <div className="h-7 w-7 rounded-full bg-zinc-700 flex items-center justify-center text-[10px] font-bold text-white uppercase shrink-0">
+                        {(user.displayName || user.email || '?').slice(0, 2)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-semibold text-white">
+                        {user.displayName || user.email || 'Unnamed account'}
+                      </p>
+                      {user.email ? (
+                        <p className="text-muted-foreground mt-0.5">{user.email}</p>
+                      ) : null}
+                    </div>
+                  </div>
                 </td>
                 <td className={`${cellClass} text-muted-foreground font-mono`}>
                   {user.accountId || '—'}

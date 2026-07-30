@@ -163,6 +163,7 @@ async function listUsers(
       displayName: (profile?.display_name as string | undefined) ?? '',
       accountId: (profile?.account_id as string | undefined) ?? '',
       supportPin: (profile?.support_pin as string | undefined) ?? '',
+      avatarUrl: (profile?.avatar_url as string | undefined) ?? null,
       createdAt: u.created_at,
       lastSignInAt: u.last_sign_in_at ?? null,
       siteCount: siteCounts.get(u.id) ?? 0,

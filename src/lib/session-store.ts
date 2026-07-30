@@ -10,6 +10,9 @@ export interface SessionContextValue {
   isAdmin: boolean
   /** True when Supabase env vars are absent and the app runs on mock data. */
   isDemo: boolean
+  /** The signed-in user's avatar (R2 public URL), if one has been uploaded. */
+  avatarUrl: string | null
+  setAvatarUrl: (url: string | null) => void
   /**
    * False until the admin-role lookup for the current session settles.
    * Route guards wait on this to avoid redirecting mid-lookup.

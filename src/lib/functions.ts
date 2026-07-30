@@ -155,6 +155,7 @@ export interface AdminListedUser {
   displayName: string
   accountId: string
   supportPin: string
+  avatarUrl: string | null
   createdAt: string
   lastSignInAt: string | null
   siteCount: number

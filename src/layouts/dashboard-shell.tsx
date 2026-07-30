@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import {
   CircleDollarSign,
@@ -40,6 +40,8 @@ import {
 
 import { cn } from '@/lib/utils'
 import { useSession } from '@/lib/session-store'
+import { uploadAvatar } from '@/lib/storage'
+import { supabase } from '@/lib/supabase'
 import { ChatWidget } from '@/components/support/chat-widget'
 
 // Main Sidebar links
@@ -84,7 +86,7 @@ const billingNavItems = [
 
 export function DashboardShell() {
   const location = useLocation()
-  const { session, isAdmin, isDemo, supportUnread } = useSession()
+  const { session, isAdmin, isDemo, supportUnread, avatarUrl, setAvatarUrl } = useSession()
   const [showPin, setShowPin] = useState(false)
   const [showMore, setShowMore] = useState(() => {
     return location.pathname === '/ssl' || location.pathname === '/dns-zones'
@@ -107,6 +109,31 @@ export function DashboardShell() {
     .join('')
     .slice(0, 2)
     .toUpperCase()
+
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
+
+  async function handleAvatarSelected(fileList: FileList | null) {
+    const file = fileList?.[0]
+    if (!file) return
+    if (isDemo || !supabase || !session) {
+      setAvatarUrl(URL.createObjectURL(file))
+      return
+    }
+    setAvatarBusy(true)
+    try {
+      const publicUrl = await uploadAvatar(supabase, file)
+      await supabase
+        .from('user_profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', session.user.id)
+      setAvatarUrl(publicUrl)
+    } catch (error) {
+      console.warn('Avatar upload failed:', error)
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#121214] text-white">
@@ -390,12 +417,35 @@ export function DashboardShell() {
 
             {/* Profile Menu */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 border border-[#2d2d34] bg-[#161619] rounded-md px-3 py-1.5 hover:bg-[#202024] transition duration-150 cursor-pointer select-none">
-                <div className="h-5 w-5 bg-zinc-700 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                  {clientInitials}
-                </div>
-                <span className="text-xs font-semibold text-white">Hi, {clientName}</span>
-              </div>
+              <input
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => void handleAvatarSelected(e.target.files)}
+                ref={avatarInputRef}
+                type="file"
+              />
+              <button
+                className="flex items-center gap-2 border border-[#2d2d34] bg-[#161619] rounded-md px-3 py-1.5 hover:bg-[#202024] transition duration-150 select-none disabled:opacity-60"
+                disabled={avatarBusy}
+                onClick={() => avatarInputRef.current?.click()}
+                title="Click to change your avatar"
+                type="button"
+              >
+                {avatarUrl ? (
+                  <img
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover"
+                    src={avatarUrl}
+                  />
+                ) : (
+                  <div className="h-5 w-5 bg-zinc-700 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                    {clientInitials}
+                  </div>
+                )}
+                <span className="text-xs font-semibold text-white">
+                  {avatarBusy ? 'Uploading…' : `Hi, ${clientName}`}
+                </span>
+              </button>
             </div>
           </header>
 
