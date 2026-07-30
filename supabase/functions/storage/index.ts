@@ -105,18 +105,21 @@ async function pluginDownload(
     throw new StorageError('No uploaded asset for this item yet', 404)
   }
 
-  const { data: current } = await admin
+  const { data: current, error: currentError } = await admin
     .from('plugin_purchases')
     .select('download_count')
     .eq('id', purchase.id)
     .single()
-  await admin
+  if (currentError) throw new StorageError(currentError.message, 500)
+
+  const { error: updateError } = await admin
     .from('plugin_purchases')
     .update({
-      download_count: Number(current?.download_count ?? 0) + 1,
+      download_count: Number(current.download_count) + 1,
       last_downloaded_at: new Date().toISOString(),
     })
     .eq('id', purchase.id)
+  if (updateError) throw new StorageError(updateError.message, 500)
 
   const url = await presignGet(
     requireEnv('R2_PRIVATE_BUCKET'),
