@@ -93,7 +93,11 @@ const bodySchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get_plugin_upload_url'),
     pluginId: z.string().uuid(),
-    version: z.string().min(1).max(40),
+    version: z
+      .string()
+      .min(1)
+      .max(40)
+      .regex(/^[\w.-]+$/, 'Version may only contain letters, numbers, dots, underscores, and hyphens'),
     fileName: z.string().min(1).max(200),
     contentLength: z.number().int().positive().max(50 * 1024 * 1024),
   }),
