@@ -19,7 +19,7 @@ export function StatusWidget() {
     { id: 'support', name: 'Support Services', status: 'Operational' },
     { id: 'platform', name: 'Platform Operations', status: 'Operational' },
     { id: 'wordpress', name: 'Managed WordPress', status: 'Operational' },
-    { id: 'cloud', name: 'Nexcess Cloud', status: 'Operational' },
+    { id: 'cloud', name: 'Maxmark Cloud', status: 'Operational' },
     { id: 'container', name: 'Cloud Container Services', status: 'Operational' },
     { id: 'network', name: 'Data Centers & Network', status: 'Operational' },
   ]
@@ -32,9 +32,9 @@ export function StatusWidget() {
     <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white">Status</h3>
-        <a className="text-[#5c4df0] hover:text-[#796ef3]" href="#" target="_blank" rel="noreferrer">
+        <Link aria-label="Open support" className="text-[#5c4df0] hover:text-[#796ef3]" to="/support">
           <ArrowUpRight className="h-4 w-4" />
-        </a>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 bg-[#121214] border border-[#232328] rounded-md p-3">
@@ -80,21 +80,21 @@ export function ScheduledMaintenanceWidget() {
     <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white">Scheduled Maintenance</h3>
-        <a className="text-[#5c4df0] hover:text-[#796ef3]" href="#" target="_blank" rel="noreferrer">
+        <Link aria-label="Open maintenance support" className="text-[#5c4df0] hover:text-[#796ef3]" to="/support">
           <ArrowUpRight className="h-4 w-4" />
-        </a>
+        </Link>
       </div>
 
       <div className="space-y-3">
         <div className="p-3 bg-[#121214] border border-[#232328] rounded-md">
-          <a className="text-xs font-semibold text-white hover:text-[#5c4df0] underline transition-colors" href="#">
+          <Link className="text-xs font-semibold text-white hover:text-[#5c4df0] underline transition-colors" to="/support">
             Scheduled Maintenance - Subset of Cloudhosts on US-Midwest-1 & US-West-1
-          </a>
+          </Link>
           <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
             <span className="font-semibold text-amber-500 uppercase tracking-wider text-[9px] block mb-1">
               Scheduled
             </span>
-            Nexcess Systems Engineers will be performing scheduled maintenance on the underlying
+            Maxmark systems engineers will be performing scheduled maintenance on the underlying
             hardware supporting servers.
           </p>
           <div className="text-[10px] text-muted-foreground/80 mt-3 pt-2 border-t border-[#232328]">
@@ -212,7 +212,7 @@ export function DashboardHome() {
               </Link>
               <button
                 className="flex-1 py-2.5 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded-md text-xs font-semibold text-white flex items-center justify-center gap-1.5 transition"
-                onClick={() => window.open('https://wordpress.org', '_blank')}
+                onClick={() => window.open('https://wordpress.org', '_blank', 'noopener,noreferrer')}
               >
                 Enter WordPress
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -248,7 +248,7 @@ export function DashboardHome() {
           <div className="bg-[#1C1C30] border border-[#2F2F52] rounded-lg p-5 space-y-3">
             <h3 className="text-sm font-semibold text-white">Performance Shield</h3>
             <p className="text-xs text-[#d1d1f0] leading-relaxed">
-              Get Cloudflare's topflight speed and security without leaving the Nexcess platform.
+              Get Cloudflare's speed and security without leaving the Maxmark platform.
             </p>
             <p className="text-xs text-[#d1d1f0] leading-relaxed">
               Performance Shield prioritizes your network delivery and takes action when a threat is

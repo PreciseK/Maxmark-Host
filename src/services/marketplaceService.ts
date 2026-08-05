@@ -1,11 +1,7 @@
 import JSZip from 'jszip'
 
-import { claimMarketplaceItem, verifyPluginPayment } from '@/lib/functions'
-import {
-  generateRef,
-  isPaystackConfigured,
-  openPaystackCheckout,
-} from '@/lib/paystack'
+import { claimMarketplaceItem, initializePayment, verifyPluginPayment } from '@/lib/functions'
+import { navigateToPaystackCheckout } from '@/lib/paystack'
 import { getPluginDownloadUrl } from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
 import type { UserMarketplaceTier } from '@/lib/tiers'
@@ -77,23 +73,6 @@ ${plugin.description}
 `
 }
 
-function checkoutWithPaystack(
-  email: string,
-  plugin: MarketplacePlugin,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    openPaystackCheckout({
-      email,
-      amountNgn: plugin.priceNgn,
-      ref: generateRef(),
-      metadata: { pluginId: plugin.id, pluginSlug: plugin.slug },
-      onSuccess: resolve,
-      onCancel: () => reject(new Error('Checkout was cancelled.')),
-      onError: (message) => reject(new Error(message)),
-    })
-  })
-}
-
 /**
  * Acquisition entry point used by the marketplace UI.
  *
@@ -154,21 +133,25 @@ export async function purchasePlugin(
     } = await sb.auth.getSession()
 
     if (session) {
-      if (!isPaystackConfigured()) {
-        throw new Error(
-          'Payments are not configured. Set VITE_PAYSTACK_PUBLIC_KEY to enable checkout.',
-        )
-      }
       if (!session.user.email) {
         throw new Error('Your account has no email address for checkout.')
       }
 
-      const reference = await checkoutWithPaystack(session.user.email, plugin)
-      return verifyPluginPayment(sb, reference, plugin.id)
+      const { authorizationUrl } = await initializePayment(sb, {
+        purpose: 'plugin',
+        pluginId: plugin.id,
+      })
+      navigateToPaystackCheckout(authorizationUrl)
+      return new Promise<PluginPurchase>(() => undefined)
     }
   }
 
   return purchaseMarketplacePlugin(plugin, 'demo-user')
+}
+
+export async function settlePluginPaymentReturn(reference: string): Promise<PluginPurchase> {
+  if (!supabase) throw new Error('Payments are unavailable in demo mode.')
+  return verifyPluginPayment(supabase, reference)
 }
 
 export async function purchaseMarketplacePlugin(
@@ -216,6 +199,10 @@ export async function downloadMarketplacePlugin(
         } satisfies PluginPurchase,
       }
     }
+  }
+
+  if (supabase) {
+    throw new Error('This licensed asset is temporarily unavailable. Please contact support.')
   }
 
   const zip = new JSZip()

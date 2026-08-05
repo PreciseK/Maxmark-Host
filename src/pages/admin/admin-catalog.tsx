@@ -17,7 +17,7 @@ import {
   type AdminPlanRow,
   type AdminProfile,
 } from '@/lib/db/admin'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatCurrency, formatDateLabel } from '@/lib/utils'
 import {
   AdminPageHeader,
@@ -33,10 +33,10 @@ import {
 } from '@/components/admin/admin-ui'
 
 export function AdminCatalog() {
-  const [plans, setPlans] = useState<AdminPlanRow[]>(mockAdminPlans)
-  const [domains, setDomains] = useState<AdminDomainRow[]>(mockAdminDomains)
-  const [zones, setZones] = useState<AdminDnsZoneRow[]>(mockAdminDnsZones)
-  const [profiles, setProfiles] = useState<AdminProfile[]>(mockAdminUsers)
+  const [plans, setPlans] = useState<AdminPlanRow[]>(isDemoMode ? mockAdminPlans : [])
+  const [domains, setDomains] = useState<AdminDomainRow[]>(isDemoMode ? mockAdminDomains : [])
+  const [zones, setZones] = useState<AdminDnsZoneRow[]>(isDemoMode ? mockAdminDnsZones : [])
+  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
 
   useEffect(() => {
     if (!supabase) return

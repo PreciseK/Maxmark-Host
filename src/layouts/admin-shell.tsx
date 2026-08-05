@@ -84,7 +84,7 @@ export function AdminShell() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar */}
-        <aside className="w-[260px] bg-[#161618] border-r border-[#232328] flex flex-col justify-between shrink-0 select-none">
+        <aside className="hidden w-[260px] shrink-0 flex-col justify-between border-r border-[#232328] bg-[#161618] select-none lg:flex">
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
             <div className="p-5 border-b border-[#232328] shrink-0">
               <div className="flex items-center gap-2">
@@ -151,6 +151,18 @@ export function AdminShell() {
 
         {/* Right Content Pane */}
         <div className="flex-1 flex flex-col min-w-0 bg-[#121214]">
+          <nav aria-label="Admin navigation" className="flex gap-2 overflow-x-auto border-b border-[#232328] px-3 py-2 lg:hidden">
+            {adminNavItems.map((item) => (
+              <NavLink
+                className={({ isActive }) => cn('shrink-0 rounded-md px-3 py-2 text-xs font-semibold', isActive ? 'bg-[#5c4df0] text-white' : 'bg-[#1c1c1f] text-white/70')}
+                end={item.end}
+                key={item.href}
+                to={item.href}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
           <header className="flex items-center justify-between border-b border-[#232328] px-6 py-4 bg-[#121214] shrink-0 text-sm">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
               <div>
@@ -175,7 +187,7 @@ export function AdminShell() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>

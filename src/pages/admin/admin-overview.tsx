@@ -24,7 +24,7 @@ import {
   type AuditEntry,
   type HostingNode,
 } from '@/lib/db/admin'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatCurrency, formatDateLabel, formatPercent } from '@/lib/utils'
 import { StatCard } from '@/components/admin/stat-card'
 
@@ -41,9 +41,9 @@ const actionLabels: Record<string, string> = {
 }
 
 export function AdminOverview() {
-  const [stats, setStats] = useState<AdminStats>(mockAdminStats)
-  const [nodes, setNodes] = useState<HostingNode[]>(mockNodes)
-  const [audit, setAudit] = useState<AuditEntry[]>(mockAuditLog)
+  const [stats, setStats] = useState<AdminStats>(isDemoMode ? mockAdminStats : { totalUsers: 0, totalSites: 0, activeSites: 0, failedSites: 0, suspendedSites: 0, slotsUsed: 0, slotsTotal: 0, revenueNgn: 0, openConversations: 0 })
+  const [nodes, setNodes] = useState<HostingNode[]>(isDemoMode ? mockNodes : [])
+  const [audit, setAudit] = useState<AuditEntry[]>(isDemoMode ? mockAuditLog : [])
 
   useEffect(() => {
     if (!supabase) return

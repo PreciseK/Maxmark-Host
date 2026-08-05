@@ -12,7 +12,7 @@
 
 - Root `npm run typecheck` / `npm run build` / `npm run lint` only cover `src/` — `supabase/functions/**` is Deno-only and not type-checked by the root TS project (confirmed: `tsconfig.app.json` scopes to `src`). Every Edge Function task is verified by static review + pattern consistency with `supabase/functions/verify-payment/index.ts` and `supabase/functions/admin-actions/index.ts`, not by a local test run — there is no `supabase/config.toml` (no local Supabase stack linked) and no `deno` binary on this machine.
 - No new npm dependency for the frontend. `aws4fetch` is imported Edge-Function-side only, via `npm:aws4fetch@^4` (same specifier style as `npm:@supabase/supabase-js@2` / `npm:zod@4` already in `verify-payment/index.ts`).
-- Every schema change goes in a new `migrations/00N_*.sql` file AND is mirrored into the canonical `schema.sql` (repo convention established by `migrations/001_currency_and_node_slots.sql`'s header comment).
+- Every schema change goes in a uniquely timestamped `migrations/<timestamp>_*.sql` file; `schema.sql` remains the baseline snapshot and ordered migrations are authoritative afterward.
 - Money/plugin/session code follows existing patterns exactly: `src/lib/db/*.ts` snake_case→camelCase mappers, demo-first `useEffect` + mock-fallback in every page/hook, `FunctionEnvelope<T>` / `invoke<T>` for all Edge Function calls, dark hex palette (`#121214`/`#161618`/`#232328`/`#5c4df0`) for any new UI.
 - Presigned URLs are always short-lived (5 min for downloads, 10 min for uploads) and scoped to one key — never returned or cached beyond the triggering action.
 - Secrets (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PRIVATE_BUCKET`, `R2_PUBLIC_BUCKET`, `R2_PUBLIC_BASE_URL`) are Supabase Edge Function secrets only — never referenced from `src/` or any `VITE_*` env var.
@@ -22,7 +22,7 @@
 ### Task 1: Database migration — R2-backed columns
 
 **Files:**
-- Create: `migrations/004_r2_storage.sql`
+- Create: `migrations/20260701000500_r2_storage.sql`
 - Modify: `schema.sql` (mirror the same DDL)
 
 **Interfaces:**
@@ -128,7 +128,7 @@ Expected: three matches for each new column name (definition line — `user_prof
 - [ ] **Step 4: Commit**
 
 ```bash
-git add migrations/004_r2_storage.sql schema.sql
+git add migrations/20260701000500_r2_storage.sql schema.sql
 git commit -m "feat: add R2-backed columns (avatar_url, message attachments, plugin asset path)"
 ```
 
@@ -2265,7 +2265,7 @@ Storage (marketplace ZIPs, chat attachments, avatars) uses two R2 buckets access
    supabase functions deploy admin-actions
    ```
 
-7. Run `migrations/004_r2_storage.sql` against your database (or re-run `schema.sql`, which is idempotent and includes the same columns).
+7. Run `migrations/20260701000500_r2_storage.sql` against your database (or re-run `schema.sql`, which is idempotent and includes the same columns).
 ```
 
 - [ ] **Step 3: Add a short note to `ARCHITECTURE.md`'s trust-boundary section**

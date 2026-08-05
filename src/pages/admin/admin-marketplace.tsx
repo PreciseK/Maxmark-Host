@@ -14,7 +14,7 @@ import {
 import { adminAction } from '@/lib/functions'
 import { getPluginUploadUrl } from '@/lib/storage'
 import { useSession } from '@/lib/session-store'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import {
   Dialog,
@@ -127,9 +127,9 @@ function mapFunctionPlugin(row: Record<string, unknown>): AdminPluginRow {
 
 export function AdminMarketplace() {
   const { isDemo } = useSession()
-  const [plugins, setPlugins] = useState<AdminPluginRow[]>(mockAdminPlugins)
-  const [purchases, setPurchases] = useState<AdminPurchaseRow[]>(mockAdminPurchases)
-  const [profiles, setProfiles] = useState<AdminProfile[]>(mockAdminUsers)
+  const [plugins, setPlugins] = useState<AdminPluginRow[]>(isDemoMode ? mockAdminPlugins : [])
+  const [purchases, setPurchases] = useState<AdminPurchaseRow[]>(isDemoMode ? mockAdminPurchases : [])
+  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<PluginFormState>(emptyPluginForm)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -778,7 +778,7 @@ export function AdminMarketplace() {
                   {form.downloadAssetPath
                     ? form.downloadAssetPath.split('/').pop()
                     : form.id
-                      ? 'No asset uploaded yet — downloads use the demo mock.'
+                      ? 'No asset uploaded yet — live claims and purchases are blocked.'
                       : 'Save the item first to enable uploads.'}
                 </span>
               </div>

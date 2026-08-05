@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { MoreVertical } from 'lucide-react'
 
 import { fetchRegisteredDomains, type RegisteredDomain } from '@/lib/db/domains'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 
 const MOCK_DOMAINS: RegisteredDomain[] = [
   {
@@ -44,7 +44,8 @@ function statusBadgeClass(status: RegisteredDomain['status']): string {
 }
 
 export function DomainsPage() {
-  const [domains, setDomains] = useState<RegisteredDomain[]>(MOCK_DOMAINS)
+  const [domains, setDomains] = useState<RegisteredDomain[]>(isDemoMode ? MOCK_DOMAINS : [])
+  const [loadError, setLoadError] = useState(false)
   const [activeTab, setActiveTab] = useState<'registration' | 'manage'>('registration')
 
   useEffect(() => {
@@ -53,13 +54,17 @@ export function DomainsPage() {
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
       fetchRegisteredDomains(sb)
-        .then((live) => { if (live.length > 0) setDomains(live) })
-        .catch(() => { /* keep mock */ })
+        .then(setDomains)
+        .catch(() => {
+          setDomains([])
+          setLoadError(true)
+        })
     })
   }, [])
 
   return (
     <div className="space-y-6 text-left">
+      {loadError ? <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">Domains could not be loaded. Please retry shortly.</p> : null}
       {/* Breadcrumbs */}
       <div className="text-xs text-muted-foreground">
         <Link className="hover:text-white transition" to="/home">

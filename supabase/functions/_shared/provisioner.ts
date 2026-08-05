@@ -45,6 +45,8 @@ export type ProvisioningStepId =
   | 'create-database'
   | 'create-user'
   | 'grant-privileges'
+  | 'install-wordpress'
+  | 'enable-ssl'
   | 'complete'
 
 export type ProvisioningStepState =
@@ -94,6 +96,10 @@ const envSchema = z.object({
   WHM_PORT: z.coerce.number().int().positive().default(2087),
   WHM_API_USERNAME: z.string().min(1).default('root'),
   WHM_MASTER_TOKEN: z.string().min(1),
+  APP_ENV: z.enum(['development', 'test', 'production']).default('production'),
+  MOCK_WHM_REQUESTS: z.string().default('false'),
+  WORDPRESS_INSTALLER_URL: z.string().url().optional(),
+  WORDPRESS_INSTALLER_TOKEN: z.string().min(20).optional(),
 })
 
 type ProvisionerEnv = z.infer<typeof envSchema>
@@ -340,6 +346,51 @@ function buildMysqlCall(
   }
 }
 
+function buildAutoSslCall(node: HostingNodeRecord): WhmCallDefinition {
+  return {
+    name: 'SSL::start_autossl_check',
+    query: {
+      cpanel_jsonapi_user: node.cpanel_username.toLowerCase(),
+      cpanel_jsonapi_apiversion: '3',
+      cpanel_jsonapi_module: 'SSL',
+      cpanel_jsonapi_func: 'start_autossl_check',
+    },
+  }
+}
+
+async function callWordPressInstaller(
+  env: ProvisionerEnv,
+  action: 'install' | 'remove',
+  input: Record<string, string>,
+) {
+  if (env.APP_ENV !== 'production' && env.MOCK_WHM_REQUESTS.toLowerCase() === 'true') return
+  if (!env.WORDPRESS_INSTALLER_URL || !env.WORDPRESS_INSTALLER_TOKEN) {
+    throw new Error('The WordPress installer integration is not configured.')
+  }
+  const url = new URL(env.WORDPRESS_INSTALLER_URL)
+  if (url.protocol !== 'https:') throw new Error('The WordPress installer must use HTTPS.')
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 45_000)
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.WORDPRESS_INSTALLER_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...input }),
+      signal: controller.signal,
+    })
+    const result = await response.json().catch(() => ({})) as { success?: boolean }
+    if (!response.ok || result.success !== true) {
+      throw new Error(`WordPress installer rejected the ${action} request.`)
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // ─── Step tracking ────────────────────────────────────────────────────────────
 
 function createSteps(): ProvisioningStep[] {
@@ -375,6 +426,18 @@ function createSteps(): ProvisioningStep[] {
       state: 'pending',
     },
     {
+      id: 'install-wordpress',
+      label: 'Installing WordPress',
+      description: 'Writing WordPress core and connecting the isolated database.',
+      state: 'pending',
+    },
+    {
+      id: 'enable-ssl',
+      label: 'Starting AutoSSL',
+      description: 'Requesting certificate validation through cPanel AutoSSL.',
+      state: 'pending',
+    },
+    {
       id: 'complete',
       label: 'Finalizing site record',
       description: 'Recording the finished site inside Supabase.',
@@ -393,25 +456,41 @@ function setStep(
 
 // ─── Node allocation ──────────────────────────────────────────────────────────
 
-async function allocateHostingNode(
+async function reserveSiteCapacity(
   supabase: SupabaseClient,
-): Promise<HostingNodeRecord> {
-  const { data, error } = await supabase.rpc('allocate_hosting_node')
-
-  if (error) {
-    throw new Error(`Unable to allocate hosting capacity: ${error.message}`)
-  }
-
-  return data as HostingNodeRecord
-}
-
-async function releaseHostingNode(supabase: SupabaseClient, nodeId: string) {
-  const { error } = await supabase.rpc('release_hosting_node', {
-    target_node_id: nodeId,
+  userId: string,
+  siteDomain: string,
+): Promise<{ reservationId: string; node: HostingNodeRecord }> {
+  const { data, error } = await supabase.rpc('reserve_site_capacity', {
+    target_user_id: userId,
+    target_site_domain: siteDomain,
   })
 
   if (error) {
-    console.error(`release_hosting_node(${nodeId}) failed: ${error.message}`)
+    const allowed = [
+      'An active hosting plan is required.',
+      'Your hosting plan site limit has been reached.',
+      'This domain is already provisioned or being provisioned.',
+      'No hosting capacity is currently available.',
+    ]
+    throw new Error(allowed.includes(error.message) ? error.message : 'Unable to reserve hosting capacity.')
+  }
+
+  return data as { reservationId: string; node: HostingNodeRecord }
+}
+
+async function releaseSiteReservation(
+  supabase: SupabaseClient,
+  reservationId: string,
+  userId: string,
+) {
+  const { error } = await supabase.rpc('release_site_reservation', {
+    target_reservation_id: reservationId,
+    target_user_id: userId,
+  })
+
+  if (error) {
+    console.error(`release_site_reservation(${reservationId}) failed: ${error.message}`)
   }
 }
 
@@ -433,12 +512,20 @@ export async function provisionWordPressSite(
 
   let steps = createSteps()
   let node: HostingNodeRecord | null = null
+  let reservationId: string | null = null
+  let wordpressInstalled = false
   const rollbackCalls: WhmCallDefinition[] = []
   let currentStep: ProvisioningStepId = 'select-node'
 
   try {
     steps = setStep(steps, 'select-node', 'in_progress')
-    node = await allocateHostingNode(supabase)
+    const reservation = await reserveSiteCapacity(
+      supabase,
+      input.userId,
+      sanitizeDomain(input.siteDomain),
+    )
+    node = reservation.node
+    reservationId = reservation.reservationId
     steps = setStep(steps, 'select-node', 'completed')
 
     const normalizedDomain = sanitizeDomain(input.siteDomain)
@@ -495,22 +582,37 @@ export async function provisionWordPressSite(
     )
     steps = setStep(steps, currentStep, 'completed')
 
+    currentStep = 'install-wordpress'
+    steps = setStep(steps, currentStep, 'in_progress')
+    await callWordPressInstaller(env, 'install', {
+      domain: normalizedDomain,
+      documentRoot: toAbsoluteDocumentRoot(normalizedDomain),
+      databaseName: names.fullDatabaseName,
+      databaseUser: names.fullDatabaseUser,
+      databasePassword,
+    })
+    wordpressInstalled = true
+    steps = setStep(steps, currentStep, 'completed')
+
+    currentStep = 'enable-ssl'
+    steps = setStep(steps, currentStep, 'in_progress')
+    await executeWhmCall(env, executor, buildAutoSslCall(node))
+    steps = setStep(steps, currentStep, 'completed')
+
     currentStep = 'complete'
     steps = setStep(steps, currentStep, 'in_progress')
-    // id / created_at / updated_at are generated by Postgres.
-    const { data: insertedSite, error: insertError } = await supabase
-      .from('user_sites')
-      .insert({
-        user_id: input.userId,
-        node_id: node.id,
-        site_domain: normalizedDomain,
-        db_name: names.fullDatabaseName,
-        db_user: names.fullDatabaseUser,
-        document_root: toAbsoluteDocumentRoot(normalizedDomain),
-        status: 'active',
-      })
-      .select()
-      .single()
+    const { data: insertedSite, error: insertError } = await supabase.rpc(
+      'complete_site_reservation',
+      {
+        target_reservation_id: reservationId,
+        target_user_id: input.userId,
+        site_values: {
+          db_name: names.fullDatabaseName,
+          db_user: names.fullDatabaseUser,
+          document_root: toAbsoluteDocumentRoot(normalizedDomain),
+        },
+      },
+    )
 
     if (insertError) {
       throw new Error(`Unable to persist site inventory: ${insertError.message}`)
@@ -529,6 +631,19 @@ export async function provisionWordPressSite(
   } catch (error) {
     steps = setStep(steps, currentStep, 'failed')
 
+    if (wordpressInstalled) {
+      try {
+        await callWordPressInstaller(env, 'remove', {
+          domain: sanitizeDomain(input.siteDomain),
+        })
+      } catch (cleanupError) {
+        console.error(
+          'WordPress cleanup failed:',
+          cleanupError instanceof Error ? cleanupError.message : cleanupError,
+        )
+      }
+    }
+
     // Best-effort rollback: undo WHM resources in reverse order, then release
     // the slot claimed by allocate_hosting_node().
     for (const call of rollbackCalls.reverse()) {
@@ -542,8 +657,8 @@ export async function provisionWordPressSite(
       }
     }
 
-    if (node) {
-      await releaseHostingNode(supabase, node.id)
+    if (reservationId) {
+      await releaseSiteReservation(supabase, reservationId, input.userId)
     }
 
     throw new ProvisioningError(

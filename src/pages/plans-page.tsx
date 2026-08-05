@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpDown, MoreVertical, Plus } from 'lucide-react'
 
 import { fetchPlans, type HostingPlan } from '@/lib/db/plans'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 
 const MOCK_PLANS: HostingPlan[] = [
   {
@@ -44,7 +44,8 @@ function fmtPrice(ngnYearly: number): string {
 }
 
 export function PlansPage() {
-  const [plans, setPlans] = useState<HostingPlan[]>(MOCK_PLANS)
+  const [plans, setPlans] = useState<HostingPlan[]>(isDemoMode ? MOCK_PLANS : [])
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (!supabase) return
@@ -52,13 +53,17 @@ export function PlansPage() {
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
       fetchPlans(sb)
-        .then((live) => { if (live.length > 0) setPlans(live) })
-        .catch(() => { /* keep mock */ })
+        .then(setPlans)
+        .catch(() => {
+          setPlans([])
+          setLoadError(true)
+        })
     })
   }, [])
 
   return (
     <div className="space-y-6">
+      {loadError ? <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">Plans could not be loaded. Please retry shortly.</p> : null}
       {/* Breadcrumbs */}
       <div className="text-xs text-muted-foreground">
         <Link className="hover:text-white transition" to="/home">

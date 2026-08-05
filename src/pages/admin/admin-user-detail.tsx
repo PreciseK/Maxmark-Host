@@ -71,21 +71,21 @@ export function AdminUserDetail() {
 
   const mockUser = mockAdminUsers.find((u) => u.userId === userId)
 
-  const [profile, setProfile] = useState<AdminProfile | null>(mockUser ?? null)
+  const [profile, setProfile] = useState<AdminProfile | null>(isDemo ? mockUser ?? null : null)
   const [sites, setSites] = useState<AdminSiteRow[]>(
-    mockAdminSites.filter((s) => s.userId === userId),
+    isDemo ? mockAdminSites.filter((s) => s.userId === userId) : [],
   )
   const [plans, setPlans] = useState<AdminPlanRow[]>(
-    mockAdminPlans.filter((p) => p.userId === userId),
+    isDemo ? mockAdminPlans.filter((p) => p.userId === userId) : [],
   )
   const [invoices, setInvoices] = useState<AdminInvoice[]>(
-    mockAdminBilling.invoices.filter((i) => i.userId === userId),
+    isDemo ? mockAdminBilling.invoices.filter((i) => i.userId === userId) : [],
   )
   const [credits, setCredits] = useState<AdminCredit[]>(
-    mockAdminBilling.credits.filter((c) => c.userId === userId),
+    isDemo ? mockAdminBilling.credits.filter((c) => c.userId === userId) : [],
   )
   const [purchases, setPurchases] = useState<AdminPurchaseRow[]>(
-    mockAdminPurchases.filter((p) => p.userId === userId),
+    isDemo ? mockAdminPurchases.filter((p) => p.userId === userId) : [],
   )
 
   const [creditDialogOpen, setCreditDialogOpen] = useState(false)
@@ -124,7 +124,7 @@ export function AdminUserDetail() {
     [credits],
   )
 
-  const email = stateEmail || mockUser?.email || ''
+  const email = stateEmail || (isDemo ? mockUser?.email : '') || ''
   const title = profile?.displayName || email || 'Customer'
 
   async function handleSiteStatusToggle(site: AdminSiteRow) {

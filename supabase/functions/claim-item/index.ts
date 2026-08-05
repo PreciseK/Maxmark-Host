@@ -65,12 +65,15 @@ Deno.serve(async (request) => {
 
   const { data: item, error: itemError } = await admin
     .from('marketplace_plugins')
-    .select('id, slug, tier, status')
+    .select('id, slug, tier, status, download_asset_path')
     .eq('id', body.itemId)
     .single()
 
   if (itemError || !item || item.status !== 'active') {
     return errorResponse('Item not found', 404)
+  }
+  if (!item.download_asset_path) {
+    return errorResponse('This item is temporarily unavailable for download.', 409)
   }
 
   const { data: userTier, error: tierError } = await admin.rpc(

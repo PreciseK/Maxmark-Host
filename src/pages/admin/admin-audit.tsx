@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { mockAuditLog } from '@/data/mockAdmin'
 import { fetchAuditLog, type AuditEntry } from '@/lib/db/admin'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import {
   AdminPageHeader,
@@ -18,7 +18,7 @@ import {
 } from '@/components/admin/admin-ui'
 
 export function AdminAudit() {
-  const [entries, setEntries] = useState<AuditEntry[]>(mockAuditLog)
+  const [entries, setEntries] = useState<AuditEntry[]>(isDemoMode ? mockAuditLog : [])
 
   useEffect(() => {
     if (!supabase) return

@@ -22,7 +22,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadChatAttachment } from '@/lib/storage'
 
 // Customer-side chat state shared by the floating widget and /support.
-// Demo mode (no Supabase) runs entirely on mockSupport data with a canned
+// Explicit demo mode runs entirely on mockSupport data with a canned
 // auto-reply so the chat feels alive; live mode uses RLS reads/writes plus a
 // realtime subscription on the open thread.
 

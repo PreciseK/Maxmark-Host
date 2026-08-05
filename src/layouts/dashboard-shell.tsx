@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import {
   CircleDollarSign,
@@ -36,6 +36,8 @@ import {
   ShieldCheck,
   ShoppingCart,
   Store,
+  Menu,
+  X,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -88,11 +90,14 @@ export function DashboardShell() {
   const location = useLocation()
   const { session, isAdmin, isDemo, supportUnread, avatarUrl, setAvatarUrl } = useSession()
   const [showPin, setShowPin] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [showMore, setShowMore] = useState(() => {
     return location.pathname === '/ssl' || location.pathname === '/dns-zones'
   })
   const { siteId } = useParams()
   const [searchParams] = useSearchParams()
+
+  useEffect(() => setMobileNavOpen(false), [location.pathname, location.search])
 
   const isSiteDetail = siteId !== undefined && location.pathname.startsWith('/sites/')
   const isBilling = location.pathname.startsWith('/billing')
@@ -140,25 +145,33 @@ export function DashboardShell() {
     <div className="flex flex-col min-h-screen bg-[#121214] text-white">
       {/* Top Notification Banner */}
       <div className="w-full bg-[#2C2C46] text-[#d1d1f0] py-2.5 px-4 text-center text-xs font-medium border-b border-white/5 select-none">
-        One brand. One home. Nexcess solutions are now under the Liquid Web banner.{' '}
-        <a className="underline hover:text-white transition duration-200" href="#">
-          Learn More
-        </a>
+        Maxmark Host operations dashboard — hosting, billing, domains, and support in one place.
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {mobileNavOpen ? (
+          <button
+            aria-label="Close navigation"
+            className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+            type="button"
+          />
+        ) : null}
         {/* Left Sidebar */}
-        <aside className="w-[260px] bg-[#161618] border-r border-[#232328] flex flex-col justify-between shrink-0 select-none">
+        <aside className={cn(
+          'fixed inset-y-0 left-0 z-40 flex w-[min(85vw,260px)] shrink-0 flex-col justify-between border-r border-[#232328] bg-[#161618] shadow-2xl transition-transform duration-200 select-none lg:static lg:w-[260px] lg:translate-x-0 lg:shadow-none',
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
+        )}>
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
             
             {/* Logo Area - Hidden in Site Detail Sidebar to match Screenshot 1 */}
             {!isSiteDetail && (
               <div className="p-5 border-b border-[#232328] shrink-0">
                 <h2 className="text-xl font-bold tracking-tight text-white leading-none">
-                  Liquid Web
+                  Maxmark Host
                 </h2>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1.5 leading-none">
-                  Nexcess product suite
+                  Managed hosting suite
                 </p>
               </div>
             )}
@@ -374,12 +387,12 @@ export function DashboardShell() {
                 <Phone className="h-4 w-4" />
               </button>
             </div>
-            <a
+            <Link
               className="block text-center text-xs text-[#5c4df0] hover:text-[#796ef3] hover:underline transition-colors duration-150"
-              href="#"
+              to="/support"
             >
               visit the knowledge base
-            </a>
+            </Link>
           </div>
         </aside>
 
@@ -387,8 +400,17 @@ export function DashboardShell() {
         <div className="flex-1 flex flex-col min-w-0 bg-[#121214]">
           {/* Header */}
           <header className="flex items-center justify-between border-b border-[#232328] px-6 py-4 bg-[#121214] shrink-0 text-sm">
+            <button
+              aria-expanded={mobileNavOpen}
+              aria-label={mobileNavOpen ? 'Close navigation' : 'Open navigation'}
+              className="mr-3 rounded-md border border-[#2d2d34] p-2 text-white lg:hidden"
+              onClick={() => setMobileNavOpen((open) => !open)}
+              type="button"
+            >
+              {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
             {/* Metadata Info */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            <div className="hidden min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground sm:flex">
               <div>
                 Client:{' '}
                 <span className="text-white font-medium">{clientEmail}</span>
@@ -451,7 +473,7 @@ export function DashboardShell() {
           </header>
 
           {/* Main Area */}
-          <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>

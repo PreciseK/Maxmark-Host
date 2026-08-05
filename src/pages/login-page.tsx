@@ -1,5 +1,132 @@
-import { SignInPage } from '@/components/ui/sign-in-flow-1'
+import { useState, type FormEvent } from 'react'
+import { ArrowRight, LoaderCircle } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+
+import { isDemoMode, supabase } from '@/lib/supabase'
 
 export function LoginPage() {
-  return <SignInPage />
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [step, setStep] = useState<'email' | 'code'>('email')
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const destination = (location.state as { from?: string } | null)?.from ?? '/home'
+
+  async function sendCode(event?: FormEvent) {
+    event?.preventDefault()
+    if (!email || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      if (supabase) {
+        const { error: authError } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: mode === 'signup' },
+        })
+        if (authError) throw authError
+      }
+      setStep('code')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The code could not be sent.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verifyCode(event: FormEvent) {
+    event.preventDefault()
+    if (code.length !== 6 || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      if (supabase) {
+        const { error: authError } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+        if (authError) throw authError
+      }
+      navigate(destination, { replace: true })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The code could not be verified.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function signInWithGoogle() {
+    if (!supabase) {
+      setError('Google sign-in is unavailable in demo mode.')
+      return
+    }
+    setError(null)
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: new URL(destination, window.location.origin).toString() },
+    })
+    if (authError) setError(authError.message)
+  }
+
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-24 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(92,77,240,0.24),transparent_34%),linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:auto,32px_32px,32px_32px]" />
+      <Link className="absolute left-6 top-6 z-10 font-semibold tracking-tight" to="/">Maxmark Host</Link>
+
+      <section className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-black/55 p-6 shadow-2xl backdrop-blur-xl sm:p-9" aria-labelledby="auth-title">
+        <div className="mb-8 flex rounded-full border border-white/10 bg-white/5 p-1" role="group" aria-label="Account action">
+          {(['signin', 'signup'] as const).map((value) => (
+            <button
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition ${mode === value ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}
+              key={value}
+              onClick={() => { setMode(value); setStep('email'); setError(null) }}
+              type="button"
+            >
+              {value === 'signin' ? 'Sign in' : 'Create account'}
+            </button>
+          ))}
+        </div>
+
+        <header className="mb-7 space-y-2 text-center">
+          <h1 className="text-3xl font-semibold" id="auth-title">
+            {step === 'code' ? 'Check your email' : mode === 'signup' ? 'Create your account' : 'Welcome back'}
+          </h1>
+          <p className="text-sm leading-6 text-white/55">
+            {step === 'code' ? `Enter the six-digit code sent to ${email}.` : 'Use a secure email code—no password to remember.'}
+          </p>
+        </header>
+
+        {step === 'email' ? (
+          <div className="space-y-4">
+            <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10" onClick={() => void signInWithGoogle()} type="button">Continue with Google</button>
+            <div className="flex items-center gap-3 text-xs text-white/35"><span className="h-px flex-1 bg-white/10" />or<span className="h-px flex-1 bg-white/10" /></div>
+            <form className="space-y-3" onSubmit={(event) => void sendCode(event)}>
+              <label className="block text-sm font-medium" htmlFor="email">Email address</label>
+              <input autoComplete="email" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20" id="email" onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required type="email" value={email} />
+              <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5c4df0] px-4 py-3 font-semibold hover:bg-[#6c5df5] disabled:opacity-60" disabled={busy} type="submit">
+                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                Send secure code
+              </button>
+            </form>
+          </div>
+        ) : (
+          <form className="space-y-4" onSubmit={(event) => void verifyCode(event)}>
+            <label className="block text-sm font-medium" htmlFor="code">Six-digit verification code</label>
+            <input autoComplete="one-time-code" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-center font-mono text-2xl tracking-[0.5em] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20" id="code" inputMode="numeric" maxLength={6} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} pattern="[0-9]{6}" required value={code} />
+            <button className="w-full rounded-xl bg-[#5c4df0] px-4 py-3 font-semibold hover:bg-[#6c5df5] disabled:opacity-60" disabled={busy || code.length !== 6} type="submit">{busy ? 'Verifying…' : 'Verify and continue'}</button>
+            <div className="flex justify-between text-sm">
+              <button className="text-white/55 hover:text-white" onClick={() => setStep('email')} type="button">Change email</button>
+              <button className="text-violet-300 hover:text-violet-200 disabled:opacity-50" disabled={busy} onClick={() => void sendCode()} type="button">Resend code</button>
+            </div>
+          </form>
+        )}
+
+        {error ? <p className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-sm text-amber-200" role="alert">{error}</p> : null}
+        {isDemoMode ? <p className="mt-4 text-center text-xs text-white/40">Demo mode: any six-digit code is accepted.</p> : null}
+
+        <p className="mt-8 text-center text-xs leading-5 text-white/40">
+          By continuing, you agree to our <Link className="underline hover:text-white" to="/legal/terms">Terms</Link>, <Link className="underline hover:text-white" to="/legal/acceptable-use">Acceptable Use Policy</Link>, <Link className="underline hover:text-white" to="/legal/privacy">Privacy Notice</Link>, and <Link className="underline hover:text-white" to="/legal/cookies">Cookie Notice</Link>.
+        </p>
+      </section>
+    </main>
+  )
 }

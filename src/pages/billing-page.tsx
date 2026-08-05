@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowUpDown, MoreVertical, CreditCard, Plus, Trash2 } from 'lucide-react'
 import { fetchBillingData } from '@/lib/db/billing'
 import type { BillingData, Invoice, Payment, PaymentMethod, Order, Credit } from '@/lib/db/billing'
 import { verifyInvoicePayment } from '@/lib/functions'
-import { supabase } from '@/lib/supabase'
+import { paymentReferenceFromSearch } from '@/lib/paystack'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { PaystackCheckout } from '@/components/paystack-checkout'
 
 const fmt = new Intl.DateTimeFormat('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -51,78 +52,61 @@ const MOCK_ORDERS: Order[] = [
 
 const MOCK_CREDITS: Credit[] = []
 
-const BILLING_EMAIL = 'maxmarkagency@gmail.com'
-
 export function BillingPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const processedPaymentRef = useRef<string | null>(null)
   const activeTab = searchParams.get('tab') || 'invoices'
 
   const [billing, setBilling] = useState<BillingData>({
-    invoices: MOCK_INVOICES,
-    payments: MOCK_PAYMENTS,
-    paymentMethods: MOCK_METHODS,
-    orders: MOCK_ORDERS,
-    credits: MOCK_CREDITS,
+    invoices: isDemoMode ? MOCK_INVOICES : [],
+    payments: isDemoMode ? MOCK_PAYMENTS : [],
+    paymentMethods: isDemoMode ? MOCK_METHODS : [],
+    orders: isDemoMode ? MOCK_ORDERS : [],
+    credits: isDemoMode ? MOCK_CREDITS : [],
     creditBalance: 0,
   })
-
-  const [billingEmail, setBillingEmail] = useState(BILLING_EMAIL)
+  const [payFeedback, setPayFeedback] = useState<{
+    tone: 'success' | 'warning'
+    text: string
+  } | null>(null)
 
   useEffect(() => {
     if (!supabase) return
     const sb = supabase
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
-      if (session.user.email) setBillingEmail(session.user.email)
-      fetchBillingData(sb)
-        .then(setBilling)
-        .catch((error: unknown) => {
-          console.warn('Billing data fetch failed, keeping demo data:', error)
+      const paymentReference = paymentReferenceFromSearch(searchParams)
+      const loadBilling = async () => {
+        if (paymentReference && processedPaymentRef.current !== paymentReference) {
+          processedPaymentRef.current = paymentReference
+          setPayFeedback({ tone: 'warning', text: 'Confirming your payment…' })
+          await verifyInvoicePayment(sb, paymentReference)
+        }
+        setBilling(await fetchBillingData(sb))
+        if (paymentReference) {
+          setPayFeedback({ tone: 'success', text: 'Payment confirmed and recorded.' })
+          const next = new URLSearchParams(searchParams)
+          next.delete('payment_return')
+          next.delete('reference')
+          next.delete('trxref')
+          setSearchParams(next, { replace: true })
+        }
+      }
+      void loadBilling().catch((error: unknown) => {
+        console.error('Billing data or payment verification failed:', error)
+        setBilling({ invoices: [], payments: [], paymentMethods: [], orders: [], credits: [], creditBalance: 0 })
+        setPayFeedback({
+          tone: 'warning',
+          text:
+            error instanceof Error
+              ? error.message
+              : 'Billing data could not be loaded. Please retry.',
         })
+      })
     })
-  }, [])
+  }, [searchParams, setSearchParams])
 
   const { invoices, payments, paymentMethods, orders, credits, creditBalance } = billing
-
-  const [payFeedback, setPayFeedback] = useState<{
-    tone: 'success' | 'warning'
-    text: string
-  } | null>(null)
-
-  function markInvoicePaid(invoiceId: string) {
-    setBilling((prev) => ({
-      ...prev,
-      invoices: prev.invoices.map((inv) =>
-        inv.id === invoiceId ? { ...inv, status: 'paid' as const } : inv,
-      ),
-    }))
-  }
-
-  // Paystack popup succeeded. In live mode the payment is only trusted after
-  // the verify-payment Edge Function confirms it with Paystack's API and
-  // records it server-side; the UI then reloads billing from the database.
-  async function handleInvoicePaid(invoiceId: string, reference: string) {
-    markInvoicePaid(invoiceId)
-
-    if (!supabase) return
-    const sb = supabase
-    const {
-      data: { session },
-    } = await sb.auth.getSession()
-    if (!session) return
-
-    try {
-      await verifyInvoicePayment(sb, reference, invoiceId)
-      setBilling(await fetchBillingData(sb))
-      setPayFeedback({ tone: 'success', text: 'Payment confirmed and recorded.' })
-    } catch (error) {
-      console.error('Invoice payment verification failed:', error)
-      setPayFeedback({
-        tone: 'warning',
-        text: 'Paystack accepted the payment but verification has not completed yet. It will reconcile shortly.',
-      })
-    }
-  }
 
   return (
     <div className="space-y-6 text-left">
@@ -196,12 +180,7 @@ export function BillingPage() {
                       <td className="px-5 py-4">
                         {inv.status === 'unpaid' && inv.totalNgn > 0 ? (
                           <PaystackCheckout
-                            amountNgn={inv.totalNgn}
-                            description={inv.description}
-                            email={billingEmail}
-                            onSuccess={(reference) => {
-                              void handleInvoicePaid(inv.id, reference)
-                            }}
+                            payment={{ purpose: 'invoice', invoiceId: inv.id }}
                             onError={(message) =>
                               setPayFeedback({ tone: 'warning', text: message })
                             }

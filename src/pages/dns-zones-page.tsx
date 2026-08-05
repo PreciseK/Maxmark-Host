@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpDown, MoreVertical, Search } from 'lucide-react'
 
 import { fetchDnsZones, type DnsZone } from '@/lib/db/dns-zones'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 
 const MOCK_ZONES: DnsZone[] = [
   {
@@ -16,7 +16,8 @@ const MOCK_ZONES: DnsZone[] = [
 ]
 
 export function DnsZonesPage() {
-  const [zones, setZones] = useState<DnsZone[]>(MOCK_ZONES)
+  const [zones, setZones] = useState<DnsZone[]>(isDemoMode ? MOCK_ZONES : [])
+  const [loadError, setLoadError] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
@@ -25,8 +26,11 @@ export function DnsZonesPage() {
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
       fetchDnsZones(sb)
-        .then((live) => { if (live.length > 0) setZones(live) })
-        .catch(() => { /* keep mock */ })
+        .then(setZones)
+        .catch(() => {
+          setZones([])
+          setLoadError(true)
+        })
     })
   }, [])
 
@@ -36,6 +40,7 @@ export function DnsZonesPage() {
 
   return (
     <div className="space-y-6">
+      {loadError ? <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">DNS zones could not be loaded. Please retry shortly.</p> : null}
       {/* Breadcrumbs */}
       <div className="text-xs text-muted-foreground text-left">
         <Link className="hover:text-white transition" to="/home">

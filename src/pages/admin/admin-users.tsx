@@ -5,7 +5,7 @@ import { ArrowUpDown, Search } from 'lucide-react'
 import { mockAdminUsers } from '@/data/mockAdmin'
 import { fetchAllProfiles } from '@/lib/db/admin'
 import { listUsersViaFunction, type AdminListedUser } from '@/lib/functions'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import {
   AdminPageHeader,
@@ -25,7 +25,7 @@ const PAGE_SIZE = 25
 export function AdminUsers() {
   const navigate = useNavigate()
   const [users, setUsers] = useState<AdminListedUser[]>(
-    mockAdminUsers.map((u) => ({ ...u, avatarUrl: null })),
+    isDemoMode ? mockAdminUsers.map((u) => ({ ...u, avatarUrl: null })) : [],
   )
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)

@@ -7,9 +7,12 @@ import '@fontsource/fraunces/600.css'
 import '@fontsource/fraunces/700.css'
 import './index.css'
 import App from './App.tsx'
+import { ErrorBoundary } from './components/error-boundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

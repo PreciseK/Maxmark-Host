@@ -5,7 +5,7 @@ import { mockNodes } from '@/data/mockAdmin'
 import { fetchNodes, type HostingNode } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
 import { useSession } from '@/lib/session-store'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import {
   Dialog,
@@ -49,7 +49,7 @@ const emptyForm: NodeFormState = {
 
 export function AdminNodes() {
   const { isDemo } = useSession()
-  const [nodes, setNodes] = useState<HostingNode[]>(mockNodes)
+  const [nodes, setNodes] = useState<HostingNode[]>(isDemoMode ? mockNodes : [])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<NodeFormState>(emptyForm)
   const [busy, setBusy] = useState(false)

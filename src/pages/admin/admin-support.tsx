@@ -18,7 +18,7 @@ import {
   subscribeToConversationMessages,
 } from '@/lib/support-realtime'
 import { useSession } from '@/lib/session-store'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { uploadChatAttachment, getChatAttachmentUrl } from '@/lib/storage'
 import { cn, formatDateLabel } from '@/lib/utils'
 import { MessageThread } from '@/components/support/message-thread'
@@ -51,7 +51,7 @@ export function AdminSupport() {
   const [messagesByConv, setMessagesByConv] = useState<Record<string, SupportMessage[]>>(
     isDemo ? mockMessagesByConversation : {},
   )
-  const [profiles, setProfiles] = useState<AdminProfile[]>(mockAdminUsers)
+  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [sending, setSending] = useState(false)

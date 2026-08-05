@@ -1,15 +1,20 @@
 # Maxmark Host
 
-Managed WordPress hosting control panel. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design.
+Managed WordPress hosting control panel built with React, Supabase Edge Functions, Paystack, cPanel/WHM, and Cloudflare R2. See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design.
 
-## Admin console & support chat setup
+## Local development
 
-The app ships with a role-guarded admin console at `/admin` and a realtime support chat (floating widget + `/support` page + admin inbox). Without Supabase env vars everything — including `/admin` — renders from mock data (demo mode), so **real deployments must set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`**; otherwise anyone can browse the (fake-data) admin UI.
+Copy `.env.example` to `.env.local`. For a sample-data-only session set `VITE_DEMO_MODE=true`; otherwise use real Supabase values. Demo mode is explicit and must never be enabled in a production deployment.
 
-To go live:
+```sh
+npm ci
+npm run dev
+```
 
-1. **Apply the schema.** Run `migrations/002_admin_roles.sql`, then re-run `schema.sql` (idempotent — installs `user_roles`, `is_admin()`, `admin_audit_log`, all admin RLS policies, the support chat tables/triggers, and the realtime publication entries). `migrations/003_support_chat.sql` documents the chat objects.
-2. **Seed the first admin** (after that account has signed in once):
+## Production deployment checklist
+
+1. Apply `schema.sql` to a new database, then apply every timestamped file in `migrations/` in filename order. Existing installations apply only migrations not yet recorded, including `20260731000800_production_hardening.sql`.
+2. Seed the first administrator after that account signs in:
 
    ```sql
    insert into public.user_roles (user_id, role)
@@ -17,134 +22,38 @@ To go live:
    on conflict do nothing;
    ```
 
-3. **Deploy the admin Edge Function:**
+3. Set Edge Function secrets from `.env.example`. Production requires `APP_ENV=production`, `MOCK_WHM_REQUESTS=false`, a Paystack secret key, WHM credentials, and the HTTPS WordPress installer integration. The application rejects mock WHM provisioning in production.
+4. Configure the private and public R2 buckets and set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PRIVATE_BUCKET`, `R2_PUBLIC_BUCKET`, and `R2_PUBLIC_BASE_URL`.
+5. Deploy all functions:
 
    ```sh
    supabase functions deploy admin-actions
-   ```
-
-4. **Verify realtime** is enabled for chat:
-
-   ```sql
-   select tablename from pg_publication_tables
-   where pubname = 'supabase_realtime' and schemaname = 'public';
-   -- must include support_messages and support_conversations
-   ```
-
-Admin reads use RLS (`is_admin()` SELECT policies); all admin writes go through `admin-actions` and land in `admin_audit_log`.
-
-## Cloudflare R2 setup
-
-Storage (marketplace ZIPs, chat attachments, avatars) uses two R2 buckets accessed via presigned URLs from Supabase Edge Functions. Nothing works until this is configured — until then, marketplace downloads use the built-in jszip mock, chat attachments/avatars are local-preview only.
-
-1. In the Cloudflare dashboard, create two R2 buckets: `maxmark-private` and `maxmark-public`.
-2. Enable public access on `maxmark-public` (custom domain or the `r2.dev` subdomain) and note the base URL.
-3. Create one R2 API token scoped to Object Read & Write on both buckets. Note the Access Key ID and Secret Access Key.
-4. Apply this CORS policy to both buckets (Cloudflare dashboard → bucket → Settings → CORS Policy), substituting your actual app origin(s):
-
-   ```json
-   [
-     {
-       "AllowedOrigins": ["https://your-app-domain.example", "http://localhost:5173"],
-       "AllowedMethods": ["GET", "PUT"],
-       "AllowedHeaders": ["Content-Type", "Content-Length"],
-       "MaxAgeSeconds": 3600
-     }
-   ]
-   ```
-
-5. Set the Edge Function secrets:
-
-   ```bash
-   supabase secrets set R2_ACCOUNT_ID=<your-account-id>
-   supabase secrets set R2_ACCESS_KEY_ID=<key-id>
-   supabase secrets set R2_SECRET_ACCESS_KEY=<secret>
-   supabase secrets set R2_PRIVATE_BUCKET=maxmark-private
-   supabase secrets set R2_PUBLIC_BUCKET=maxmark-public
-   supabase secrets set R2_PUBLIC_BASE_URL=<public bucket base URL from step 2>
-   ```
-
-6. Deploy the new/updated functions:
-
-   ```bash
+   supabase functions deploy claim-item
+   supabase functions deploy initialize-payment
+   supabase functions deploy paystack-webhook --no-verify-jwt
+   supabase functions deploy provision-site
    supabase functions deploy storage
-   supabase functions deploy admin-actions
+   supabase functions deploy verify-payment
    ```
 
-7. Run `migrations/004_r2_storage.sql` and `migrations/006_marketplace_asset_flag.sql` against your database (or re-run `schema.sql`, which is idempotent and includes the same columns) **before** deploying the frontend build. The marketplace fetch selects a generated `has_download_asset` column added by migration 006 — deploying the frontend first causes that query to fail and the app to silently fall back to demo data app-wide until the migration lands.
+6. Configure Paystack live mode, ensure `APP_URL` is the exact HTTPS customer-app origin, and set the Paystack webhook URL to `https://<project-ref>.supabase.co/functions/v1/paystack-webhook`. The webhook is deployed without Supabase JWT verification because Paystack cannot provide a user token; the function instead verifies Paystack's HMAC-SHA512 signature over the raw request body. Initialization and settlement are server-side, and the browser never receives a secret key or supplies an amount.
+7. Build and validate before release:
 
----
+   ```sh
+   npm ci
+   npm run check
+   npm audit --omit=dev
+   ```
 
-## Vite template notes (React + TypeScript + Vite)
+The repository contains route rewrites for Netlify (`public/_redirects`) and Vercel (`vercel.json`). Preserve equivalent `/app.html` rewrites and security headers on other hosts.
 
-This project started from the Vite template, which provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## WordPress installer contract
 
-Currently, two official plugins are available:
+The configured installer endpoint receives an authenticated JSON `POST`. `action: "install"` includes the domain, document root, database name, database user, and generated database password. `action: "remove"` includes the domain for rollback. Both operations must return HTTP success with `{ "success": true }`; credentials must never be logged. cPanel AutoSSL starts only after installation succeeds.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Operational notes
 
-### React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-### Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Customer and admin inventory is fail-closed: live fetch failures show empty/error states and never substitute sample accounts.
+- Payment intents are canonical, user-bound, amount-checked, and settled once in a row-locking SQL function.
+- Site provisioning reserves both plan quota and node capacity before remote work and releases them on rollback.
+- Legal copy in `src/pages/legal-page.tsx` is a functional baseline; have qualified counsel validate it for the operating entity and jurisdictions before launch.

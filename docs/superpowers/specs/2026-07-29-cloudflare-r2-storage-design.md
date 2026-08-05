@@ -56,7 +56,7 @@ Admin side — `admin-actions` gains one more action:
 
 - **`get_plugin_upload_url`** — audited (appended to `admin_audit_log` like every other admin-actions call), returns a presigned PUT into `maxmark-private` for a given `pluginId`/`version`. The admin console uploads the ZIP directly to that URL, then calls the existing `upsert_plugin` action with the resulting key in a new `downloadAssetPath` field.
 
-## Database changes — `migrations/004_r2_storage.sql`
+## Database changes — `migrations/20260701000500_r2_storage.sql`
 
 Mirrored into `schema.sql` per repo convention.
 

@@ -9,6 +9,8 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run lint && npm run test && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -18,9 +20,7 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
-    "@react-three/fiber": "^9.6.1",
-    "@supabase/supabase-js": "^2.99.1",
-    "@types/three": "^0.185.0",
+    "@supabase/supabase-js": "^2.110.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.0",
@@ -28,9 +28,8 @@
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.1",
+    "react-router-dom": "^7.18.0",
     "tailwind-merge": "^3.5.0",
-    "three": "^0.185.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

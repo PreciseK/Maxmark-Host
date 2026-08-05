@@ -3,10 +3,10 @@ import type { Session } from '@supabase/supabase-js'
 
 import { fetchUserUnreadTotal } from '@/lib/db/support'
 import { SessionContext } from '@/lib/session-store'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const isDemo = supabase === null
+  const isDemo = isDemoMode
   const [session, setSession] = useState<Session | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)

@@ -1,0 +1,14 @@
+/home                /app.html  200
+/plans               /app.html  200
+/domains             /app.html  200
+/dns-zones           /app.html  200
+/sites               /app.html  200
+/sites/*             /app.html  200
+/marketplace         /app.html  200
+/billing             /app.html  200
+/support             /app.html  200
+/ssl                 /app.html  200
+/login               /app.html  200
+/admin               /app.html  200
+/admin/*             /app.html  200
+/legal/*             /app.html  200

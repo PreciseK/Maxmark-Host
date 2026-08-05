@@ -1,29 +1,35 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import type { ComponentType } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
+import { ConfigurationError } from '@/components/configuration-error'
+import { CustomerRoute } from '@/components/customer-route'
 import { initialPluginPurchases, marketplacePlugins } from '@/data/mockMarketplace'
 import { mockSites } from '@/data/mockSites'
 import { fetchSites } from '@/lib/db/sites'
-import {
-  fetchPlugins,
-  fetchPurchases,
-  updatePurchaseDownloadState,
-} from '@/lib/db/marketplace'
-import { supabase } from '@/lib/supabase'
+import { fetchPlugins, fetchPurchases } from '@/lib/db/marketplace'
+import { configurationError, isDemoMode, supabase } from '@/lib/supabase'
 import { SessionProvider } from '@/lib/session-context'
 import { DashboardShell } from '@/layouts/dashboard-shell'
-import { DashboardHome } from '@/pages/dashboard-home'
-import { PlansPage } from '@/pages/plans-page'
-import { DomainsPage } from '@/pages/domains-page'
-import { DnsZonesPage } from '@/pages/dns-zones-page'
-import { SupportPage } from '@/pages/support-page'
-import { BillingPage } from '@/pages/billing-page'
-import { MarketplacePage } from '@/pages/marketplace-page'
-import { SiteDetailPage } from '@/pages/site-detail-page'
-import { SslPage } from '@/pages/ssl-page'
-import { SitesPage } from '@/pages/sites-page'
 import type { PluginPurchase } from '@/types/marketplace'
 import type { ManagedSite } from '@/types/provisioning'
+
+const lazyPage = <T extends Record<string, unknown>, K extends keyof T>(
+  loader: () => Promise<T>,
+  name: K,
+) => lazy(() => loader().then((module) => ({ default: module[name] as ComponentType })))
+
+const DashboardHome = lazyPage(() => import('@/pages/dashboard-home'), 'DashboardHome')
+const PlansPage = lazyPage(() => import('@/pages/plans-page'), 'PlansPage')
+const DomainsPage = lazyPage(() => import('@/pages/domains-page'), 'DomainsPage')
+const DnsZonesPage = lazyPage(() => import('@/pages/dns-zones-page'), 'DnsZonesPage')
+const SupportPage = lazyPage(() => import('@/pages/support-page'), 'SupportPage')
+const BillingPage = lazyPage(() => import('@/pages/billing-page'), 'BillingPage')
+const MarketplacePage = lazy(() => import('@/pages/marketplace-page').then((m) => ({ default: m.MarketplacePage })))
+const SiteDetailPage = lazy(() => import('@/pages/site-detail-page').then((m) => ({ default: m.SiteDetailPage })))
+const SslPage = lazyPage(() => import('@/pages/ssl-page'), 'SslPage')
+const SitesPage = lazy(() => import('@/pages/sites-page').then((m) => ({ default: m.SitesPage })))
+const LegalPage = lazyPage(() => import('@/pages/legal-page'), 'LegalPage')
 
 // The login page pulls in three.js / react-three-fiber for its shader
 // background — lazy-load it so the dashboard bundle stays lean.
@@ -38,10 +44,12 @@ const AdminArea = lazy(() =>
 )
 
 function App() {
-  const [sites, setSites] = useState<ManagedSite[]>(mockSites)
-  const [plugins, setPlugins] = useState(marketplacePlugins)
-  const [pluginPurchases, setPluginPurchases] = useState<PluginPurchase[]>(initialPluginPurchases)
-  const [dbReady, setDbReady] = useState(false)
+  const [sites, setSites] = useState<ManagedSite[]>(isDemoMode ? mockSites : [])
+  const [plugins, setPlugins] = useState(isDemoMode ? marketplacePlugins : [])
+  const [pluginPurchases, setPluginPurchases] = useState<PluginPurchase[]>(
+    isDemoMode ? initialPluginPurchases : [],
+  )
+  const [dataError, setDataError] = useState<string | null>(null)
 
   // Load live data from Supabase whenever a session appears; drop back to
   // demo data on sign-out. Demo data also stays if a fetch fails, but the
@@ -57,12 +65,16 @@ function App() {
           fetchPlugins(sb),
           fetchPurchases(sb),
         ])
-        if (liveSites.length > 0) setSites(liveSites)
-        if (livePlugins.length > 0) setPlugins(livePlugins)
-        if (livePurchases.length > 0) setPluginPurchases(livePurchases)
-        setDbReady(true)
+        setSites(liveSites)
+        setPlugins(livePlugins)
+        setPluginPurchases(livePurchases)
+        setDataError(null)
       } catch (error) {
-        console.warn('Live data fetch failed, keeping demo data:', error)
+        console.error('Live account data fetch failed:', error)
+        setSites([])
+        setPlugins([])
+        setPluginPurchases([])
+        setDataError('Your account data could not be loaded. Refresh to retry; no demo data has been substituted.')
       }
     }
 
@@ -76,10 +88,10 @@ function App() {
       if (event === 'SIGNED_IN') {
         void loadLiveData()
       } else if (event === 'SIGNED_OUT') {
-        setSites(mockSites)
-        setPlugins(marketplacePlugins)
-        setPluginPurchases(initialPluginPurchases)
-        setDbReady(false)
+        setSites([])
+        setPlugins([])
+        setPluginPurchases([])
+        setDataError(null)
       }
     })
 
@@ -90,7 +102,7 @@ function App() {
     setSites((prev) => [site, ...prev])
   }
 
-  async function handlePluginPurchaseUpsert(purchase: PluginPurchase) {
+  function handlePluginPurchaseUpsert(purchase: PluginPurchase) {
     setPluginPurchases((prev) => {
       const exists = prev.some((p) => p.id === purchase.id)
       return exists
@@ -98,22 +110,31 @@ function App() {
         : [purchase, ...prev]
     })
 
-    // Sync download bookkeeping for real licences only; demo purchases have
-    // no matching auth user and would be rejected by RLS anyway.
-    if (supabase && dbReady && purchase.userId !== 'demo-user') {
-      try {
-        await updatePurchaseDownloadState(supabase, purchase)
-      } catch (error) {
-        console.warn('Purchase sync failed; local state kept:', error)
-      }
-    }
   }
+
+  if (configurationError) return <ConfigurationError message={configurationError} />
 
   return (
     <BrowserRouter>
       <SessionProvider>
+        {dataError ? (
+          <div
+            className="fixed inset-x-4 top-4 z-[100] rounded-md border border-amber-500/40 bg-[#251d0d] px-4 py-3 text-sm text-amber-100 shadow-xl"
+            role="alert"
+          >
+            {dataError}
+          </div>
+        ) : null}
+        <Suspense fallback={<div className="min-h-screen bg-[#121214]" />}>
         <Routes>
-        <Route element={<DashboardShell />} path="/">
+        <Route
+          element={
+            <CustomerRoute>
+              <DashboardShell />
+            </CustomerRoute>
+          }
+          path="/"
+        >
           <Route element={<Navigate replace to="/home" />} index />
           <Route element={<DashboardHome />} path="home" />
           <Route element={<PlansPage />} path="plans" />
@@ -147,6 +168,7 @@ function App() {
           }
           path="/login"
         />
+        <Route element={<LegalPage />} path="/legal/:policy" />
         <Route
           element={
             <Suspense fallback={<div className="min-h-screen bg-[#121214]" />}>
@@ -156,6 +178,7 @@ function App() {
           path="/admin/*"
         />
         </Routes>
+        </Suspense>
       </SessionProvider>
     </BrowserRouter>
   )

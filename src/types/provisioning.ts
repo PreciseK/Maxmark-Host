@@ -62,6 +62,8 @@ export type ProvisioningStepId =
   | 'create-database'
   | 'create-user'
   | 'grant-privileges'
+  | 'install-wordpress'
+  | 'enable-ssl'
   | 'complete'
 
 export type ProvisioningStepState =

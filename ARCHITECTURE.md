@@ -1,6 +1,15 @@
 # Maxmark Host — Architecture
 
-Maxmark Host is a managed WordPress hosting control panel. It presents a single-page application (SPA) that abstracts the complexity of WHM/cPanel into a clean dashboard inspired by Nexcess/Liquid Web. The backend is Supabase: Postgres + RLS for data, email-OTP auth, and Edge Functions for everything that must not be trusted to the browser (WHM provisioning, Paystack payment verification).
+> **Production hardening update (July 31, 2026):** demo data is available only
+> with `VITE_DEMO_MODE=true`; invalid live configuration is blocked. Payments
+> are initialized server-side into single-use `payment_intents` and settled by
+> an atomic SQL function after exact Paystack amount/email/metadata checks.
+> Provisioning reserves plan quota and node capacity atomically, then requires
+> the configured WordPress installer and cPanel AutoSSL before completion.
+> This update supersedes older mock-first or browser-checkout descriptions
+> below where they conflict.
+
+Maxmark Host is a managed WordPress hosting control panel. It presents a single-page application (SPA) that abstracts WHM/cPanel behind the Maxmark customer dashboard. The backend is Supabase: Postgres + RLS for data, email-OTP auth, and Edge Functions for everything that must not be trusted to the browser (provisioning, payment initialization, and settlement).
 
 **Trust boundary rule:** the browser only ever reads/updates its own rows under RLS. Anything that creates value — a provisioned site, a paid invoice, a plugin licence — is written exclusively by an Edge Function running with the service-role key after server-side verification.
 
@@ -148,11 +157,12 @@ Pages that own self-contained data (billing, plans, dns-zones, domains, backup l
 
 ### Supabase client
 
-`src/lib/supabase.ts` exports `supabase: SupabaseClient | null`. It is `null` when `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are absent, allowing the app to run entirely on mock data during local development without credentials.
+`src/lib/supabase.ts` exports `supabase: SupabaseClient | null`. It is `null` only in explicit demo mode or when live configuration is invalid. Invalid live configuration renders a blocking error rather than sample account data.
 
 ```ts
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
 export const supabase =
-  supabaseUrl && supabaseAnonKey
+  !isDemoMode && !configurationError
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null
 ```
@@ -163,7 +173,7 @@ Each file in `src/lib/db/` is a thin module that:
 1. Accepts a non-null `SupabaseClient` (callers guard before passing)
 2. Runs one or more Supabase queries
 3. Maps snake_case DB columns to camelCase TypeScript interfaces
-4. Throws on error so callers can catch and keep mock state
+4. Throws on error so live callers clear account state and show an error
 
 | File | Exports |
 |---|---|
@@ -171,19 +181,19 @@ Each file in `src/lib/db/` is a thin module that:
 | `backup-logs.ts` | `fetchBackupLogs(supabase, siteId)` |
 | `billing.ts` | `fetchBillingData` → `BillingData` |
 | `plans.ts` | `fetchPlans` |
-| `marketplace.ts` | `fetchPlugins`, `fetchPurchases`, `updatePurchaseDownloadState` |
+| `marketplace.ts` | `fetchPlugins`, `fetchPurchases` |
 | `dns-zones.ts` | `fetchDnsZones` (with `dns_records(count)` join) |
 | `domains.ts` | `fetchRegisteredDomains` |
 
 All money columns are NGN (`total_ngn`, `amount_ngn`, `price_ngn`, …) —
 matching the Paystack integration, which only charges NGN.
 
-### Mock-first, live-replace pattern
+### Explicit demo, fail-closed live pattern
 
-Every page initialises state from a typed mock constant. A `useEffect` fires on mount, checks for a Supabase session, and replaces state with live data only when both conditions hold. Any fetch error silently keeps the mock — the UI is always functional.
+Pages initialise typed mock constants only when `VITE_DEMO_MODE=true`. Live sessions replace state even with a valid empty result. Any fetch error clears account state and surfaces an error; sample customers or entitlements are never substituted.
 
 ```ts
-const [plans, setPlans] = useState<HostingPlan[]>(MOCK_PLANS)
+const [plans, setPlans] = useState<HostingPlan[]>(isDemoMode ? MOCK_PLANS : [])
 
 useEffect(() => {
   if (!supabase) return
@@ -191,8 +201,8 @@ useEffect(() => {
   sb.auth.getSession().then(({ data: { session } }) => {
     if (!session) return
     fetchPlans(sb)
-      .then((live) => { if (live.length > 0) setPlans(live) })
-      .catch(() => { /* keep mock */ })
+      .then(setPlans)
+      .catch(() => { setPlans([]); setLoadError(true) })
   })
 }, [])
 ```
@@ -295,30 +305,33 @@ using (
 ### Steps
 
 ```
-1. select-node     → rpc allocate_hosting_node()  (atomic, row-locked slot claim)
+1. select-node     → rpc reserve_site_capacity() (atomic plan quota + node reservation)
 2. create-domain   → WHM AddonDomain::addaddondomain
 3. create-database → WHM Mysql::create_database
 4. create-user     → WHM Mysql::create_user
 5. grant-privileges→ WHM Mysql::set_privileges_on_database
-6. complete        → insert user_sites row (uuid generated by Postgres)
+6. install-wordpress → authenticated HTTPS installer service
+7. enable-ssl      → cPanel SSL::start_autossl_check
+8. complete        → rpc complete_site_reservation()
 ```
 
 Failure handling: if any step throws, the completed WHM steps are rolled back
 best-effort (deladdondomain / delete\_database / delete\_user in reverse
-order) and the claimed slot is returned via `rpc release_hosting_node()`. The
+order), the installer receives a remove request, and capacity is returned via
+`rpc release_site_reservation()`. The
 step log — including the `failed` step — is returned to the client in the
 error payload. The generated MySQL password never leaves the server.
 
-`allocate_hosting_node()` uses `select … for update skip locked`, so two
-concurrent provisions can never both take the last slot of a node. Capacity is
-per-node via the `hosting_nodes.max_slots` column (no hardcoded 20s).
+`reserve_site_capacity()` combines a per-user advisory lock with row-locked
+node allocation, so concurrent provisions cannot exceed either the active
+plan's site allowance or a node's capacity.
 
 ### Executor injection
 
 The provisioner accepts a `WhmRequestExecutor` dependency:
 
 - **Production**: `createFetchWhmExecutor()` hitting `https://{WHM_HOST}:{WHM_PORT}/json-api/cpanel` with `Authorization: whm root:{WHM_MASTER_TOKEN}`
-- **Staging / demo**: `createMockWhmExecutor()` — selected by `MOCK_WHM_REQUESTS=true`, returns realistic cPanel JSON
+- **Staging / demo**: `createMockWhmExecutor()` — selected by `MOCK_WHM_REQUESTS=true`; production rejects this setting
 
 ---
 
@@ -329,21 +342,23 @@ The client never decides that something is paid.
 ```
 Browser                         Edge Function                  Paystack
 ───────                         ─────────────                  ────────
-open inline checkout  ──────────────────────────────────────▶  charge card
-popup succeeds (reference)
-POST verify-payment {reference, purpose, invoiceId|pluginId} ▶
+POST initialize-payment {purpose, targetId} ▶
+                                resolve canonical price and entitlement
+                                create single-use payment_intent
+                                POST /transaction/initialize ▶
+◀ official checkout URL; browser redirects
+Paystack callback (reference)
+POST verify-payment {reference} ▶
                                 GET /transaction/verify/{ref} ▶
                                 ◀ status, amount, currency
                                 assert: success, NGN,
-                                amount ≥ invoice total / plugin price
-                                write payments row / plugin_purchases row
-                                (service role; idempotent on
-                                 transaction_id / (user_id, plugin_id))
+                                exact amount, email and intent metadata
+                                rpc settle_payment_intent() under row lock
 ◀ verified result — UI reloads billing / licence state from DB
 ```
 
 - **Invoices** (`billing-page.tsx`): after checkout, `verifyInvoicePayment()` settles the invoice server-side, then billing data is re-fetched.
-- **Marketplace licences** (`marketplaceService.purchasePlugin`): live mode requires a session + `VITE_PAYSTACK_PUBLIC_KEY`; the licence key is generated server-side by `verify-payment`. Demo mode (no Supabase) creates a local mock purchase.
+- **Marketplace licences** (`marketplaceService.purchasePlugin`): live checkout is initialized server-side; the licence key is generated only during verified atomic settlement. Explicit demo mode creates a local mock purchase.
 
 ## Marketplace tiers
 
@@ -370,12 +385,12 @@ without credentials.
 
 ## Authentication
 
-`sign-in-flow-1.tsx` uses Supabase email OTP: `signInWithOtp()` on the email
+`login-page.tsx` uses Supabase email OTP: `signInWithOtp()` on the email
 step (with `shouldCreateUser` tied to the Login/Signup toggle), `verifyOtp()`
 when the 6-digit code completes, plus Google OAuth via `signInWithOAuth()`.
 `App.tsx` subscribes to `onAuthStateChange` — live data loads on `SIGNED_IN`
-and demo data is restored on `SIGNED_OUT`. Without Supabase credentials the
-flow remains a pure demo animation.
+and account data is cleared on `SIGNED_OUT`. Explicit demo mode accepts any
+six-digit code for a local walkthrough.
 
 ### Environment variables
 
@@ -383,14 +398,17 @@ flow remains a pure demo animation.
 |---|---|---|
 | `VITE_SUPABASE_URL` | Frontend | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Frontend | Supabase anon key (RLS enforced) |
-| `VITE_PAYSTACK_PUBLIC_KEY` | Frontend | Paystack inline checkout key |
+| `VITE_DEMO_MODE` | Frontend | Explicit sample-data mode; always false in production |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Injected automatically by Supabase |
 | `PAYSTACK_SECRET_KEY` | Edge Functions | Verifies transactions server-side |
+| `APP_URL` | Edge Functions | Exact HTTPS Paystack callback origin |
+| `APP_ENV` | Edge Functions | Runtime environment; production rejects mock WHM |
 | `WHM_HOST` | Edge Functions | cPanel/WHM server hostname |
 | `WHM_PORT` | Edge Functions | Default 2087 |
 | `WHM_API_USERNAME` | Edge Functions | Default `root` |
 | `WHM_MASTER_TOKEN` | Edge Functions | WHM API token |
-| `MOCK_WHM_REQUESTS` | Edge Functions | `true` → mock WHM executor |
+| `MOCK_WHM_REQUESTS` | Edge Functions | `true` → mock WHM executor (non-production only) |
+| `WORDPRESS_INSTALLER_URL` / `WORDPRESS_INSTALLER_TOKEN` | Edge Functions | Authenticated HTTPS install/rollback adapter |
 
 ---
 
@@ -494,13 +512,13 @@ Both tables are added to the `supabase_realtime` publication (guarded in `schema
 
 **No state library.** The app is small enough that `App.tsx` as a single state container (with selective prop passing) is simpler than Redux or Zustand. Cross-cutting state (`sites`, `plugins`, `pluginPurchases`) lives at the root; page-local data (`billing`, `plans`, etc.) lives inside each page's own `useState`.
 
-**Mock-first rendering.** All pages render immediately from typed mock constants. Supabase data replaces the mock only when a session exists and the query succeeds. This means the UI is always functional — even without credentials, even if Supabase is down.
+**Fail-closed rendering.** Typed mocks render only with `VITE_DEMO_MODE=true`. Live fetch failures never retain or substitute sample customer or commercial records.
 
 **Repository layer owns snake\_case → camelCase.** DB columns use snake\_case (Postgres convention); TypeScript types use camelCase (JS convention). The mapper in each `src/lib/db/*.ts` file handles the conversion explicitly, keeping components unaware of DB naming.
 
-**`supabase` is nullable by design.** The client is `null` when env vars are absent. All callers guard with `if (!supabase) return` before any DB call. Inside async `.then()` callbacks the non-null reference is captured in a local `const sb = supabase` to satisfy TypeScript narrowing.
+**`supabase` is nullable by design.** The client is `null` in explicit demo mode or invalid configuration. Invalid live configuration is blocked before routing. Callers still guard with `if (!supabase) return` before DB calls.
 
-**Provisioner uses executor injection.** The shared provisioner depends on a `WhmRequestExecutor` interface rather than `fetch` directly. `MOCK_WHM_REQUESTS=true` swaps in `createMockWhmExecutor()` so the whole pipeline (including the atomic slot RPCs) can run against a staging project with no WHM server.
+**Provisioner uses executor injection.** The shared provisioner depends on a `WhmRequestExecutor` interface rather than `fetch` directly. Mock execution is restricted to non-production; production also requires the WordPress installer adapter and AutoSSL.
 
 **Server code never enters the client bundle.** Everything that touches `SUPABASE_SERVICE_ROLE_KEY`, `WHM_MASTER_TOKEN`, or `PAYSTACK_SECRET_KEY` lives under `supabase/functions/`, which is outside the Vite `src/` include.
 

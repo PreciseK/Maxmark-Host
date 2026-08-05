@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 
 import { fetchBackupLogs, type BackupLog } from '@/lib/db/backup-logs'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import type { ManagedSite } from '@/types/provisioning'
 
 const MOCK_BACKUP_LOGS: BackupLog[] = [
@@ -79,7 +79,8 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
   
   const activeTab = searchParams.get('tab') || 'credentials'
   const [copiedText, setCopiedText] = useState<string | null>(null)
-  const [backupLogs, setBackupLogs] = useState<BackupLog[]>(MOCK_BACKUP_LOGS)
+  const [backupLogs, setBackupLogs] = useState<BackupLog[]>(isDemoMode ? MOCK_BACKUP_LOGS : [])
+  const [backupLoadError, setBackupLoadError] = useState(false)
 
   useEffect(() => {
     if (!supabase || !siteId) return
@@ -87,8 +88,11 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
       fetchBackupLogs(sb, siteId)
-        .then((live) => { if (live.length > 0) setBackupLogs(live) })
-        .catch(() => { /* keep mock */ })
+        .then(setBackupLogs)
+        .catch(() => {
+          setBackupLogs([])
+          setBackupLoadError(true)
+        })
     })
   }, [siteId])
 
@@ -105,10 +109,10 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
           Site not found
         </span>
         <h2 className="text-xl font-bold text-white">
-          This site does not exist in the local MVP state.
+          This site could not be found.
         </h2>
         <p className="text-sm text-muted-foreground">
-          It may have been removed from the mock dataset or never provisioned in this browser session.
+          It may have been removed, or you may no longer have access to it.
         </p>
         <Link
           to="/sites"
@@ -147,6 +151,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
 
   return (
     <div className="space-y-6">
+      {backupLoadError ? <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">Backup history could not be loaded.</p> : null}
       {/* Breadcrumbs */}
       <div className="text-xs text-muted-foreground text-left">
         <Link className="hover:text-white transition" to="/home">
@@ -218,9 +223,9 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               </button>
             </div>
             <div className="h-3 w-px bg-[#232328] hidden sm:block" />
-            <a href="#" className="text-[#5c4df0] hover:text-[#796ef3] hover:underline transition shrink-0 font-medium">
+            <Link to="/support" className="text-[#5c4df0] hover:text-[#796ef3] hover:underline transition shrink-0 font-medium">
               Looking for an IP address?
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -241,9 +246,9 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               Please ensure that you've configured your FTP client to connect via SSL/TLS with explicit encryption. For
               security purposes, all usernames must include the site's domain as the mail server. However, this email
               address does not need to exist to be set as a username.{' '}
-              <a className="text-[#5c4df0] hover:underline" href="#">
+              <Link className="text-[#5c4df0] hover:underline" to="/support">
                 Learn More
-              </a>
+              </Link>
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-[#232328]">
@@ -343,7 +348,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               </div>
               <button
                 className="w-full py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white text-center transition"
-                onClick={() => window.open('https://wordpress.org', '_blank')}
+                onClick={() => window.open('https://wordpress.org', '_blank', 'noopener,noreferrer')}
               >
                 Site login
               </button>
@@ -404,9 +409,9 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                 <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
                   In the event of a migration or high traffic event this IP address may need to change, use CNAMEs to
                   avoid this.{' '}
-                  <a className="text-[#5c4df0] hover:underline" href="#">
+                  <Link className="text-[#5c4df0] hover:underline" to="/support">
                     For more information please visit this article.
-                  </a>
+                  </Link>
                 </p>
               </div>
             </div>
@@ -425,9 +430,9 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               </h3>
               <p className="text-muted-foreground">
                 Content Delivery Network services are included in your plan.{' '}
-                <a className="text-[#5c4df0] hover:underline font-semibold" href="#">
+                <Link className="text-[#5c4df0] hover:underline font-semibold" to="/support">
                   Learn More
-                </a>
+                </Link>
               </p>
 
               {/* Accelerated CDN Graphic */}
@@ -543,7 +548,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                     Cloudflare WAF Protected
                   </span>
                   <p className="leading-relaxed">
-                    Get Cloudflare's topflight speed and security without leaving the Nexcess platform.
+                    Get Cloudflare's speed and security without leaving the Maxmark platform.
                   </p>
                   <p className="leading-relaxed">
                     Starting at $5 per month, Performance Shield prioritizes your network delivery and takes action when a
@@ -661,12 +666,12 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Knowledge Base Links</h3>
               <div className="space-y-2.5 pt-1 text-xs">
-                <a className="block text-white hover:text-[#5c4df0] underline transition duration-150" href="#">
+                <Link className="block text-white hover:text-[#5c4df0] underline transition duration-150" to="/support">
                   Mwx Staging Site Create KB
-                </a>
-                <a className="block text-white hover:text-[#5c4df0] underline transition duration-150" href="#">
+                </Link>
+                <Link className="block text-white hover:text-[#5c4df0] underline transition duration-150" to="/support">
                   Development Environment KB
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -738,9 +743,9 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               </h3>
               <p className="text-muted-foreground leading-relaxed">
                 Activate Design Services now and our professionals will create a turnkey WordPress website that's 100% unique to your business. We collaborate with you closely to launch a highly-customized WordPress website that perfectly aligns with your vision.{' '}
-                <a className="text-[#5c4df0] hover:underline" href="#">
+                <Link className="text-[#5c4df0] hover:underline" to="/support">
                   Learn more.
-                </a>
+                </Link>
               </p>
             </div>
             <button className="w-full py-2.5 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition text-center">
@@ -906,9 +911,9 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             <p className="text-muted-foreground leading-relaxed">
               Before upgrading anything on a live site, we create a copy of the site, then take screenshots before and after the plugin update. If anything has changed, we hold the update to give you the chance to review it yourself. Visual Comparison runs about every 4 days.
             </p>
-            <a className="text-[#5c4df0] hover:underline font-semibold block pt-1" href="#">
+            <Link className="text-[#5c4df0] hover:underline font-semibold block pt-1" to="/support">
               Learn More
-            </a>
+            </Link>
           </div>
 
           {/* Upgrades */}
@@ -1042,7 +1047,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
               <h3 className="text-sm font-semibold text-white">Webmail</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Access your mailbox directly from any web browser securely using our Nexcess webmail portal.
+                Access your mailbox securely from any web browser using Maxmark webmail.
               </p>
               <button className="w-full py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition">
                 Launch Webmail

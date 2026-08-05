@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from 'react'
+import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import {
   ArrowDownToLine,
   ExternalLink,
@@ -9,14 +9,15 @@ import {
   Sparkles,
   Star,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { fetchPlans } from '@/lib/db/plans'
-import { supabase } from '@/lib/supabase'
+import { paymentReferenceFromSearch } from '@/lib/paystack'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import {
   marketplaceTierForPlans,
   tierLabel,
@@ -25,6 +26,7 @@ import {
 import {
   acquireItem,
   downloadMarketplacePlugin,
+  settlePluginPaymentReturn,
 } from '@/services/marketplaceService'
 import type {
   MarketplacePlugin,
@@ -54,6 +56,8 @@ export function MarketplacePage({
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All')
   const [productFilter, setProductFilter] = useState<ProductType>('plugin')
   const [busyPluginId, setBusyPluginId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const processedPaymentRef = useRef<string | null>(null)
   const [feedback, setFeedback] = useState<{
     tone: 'success' | 'warning'
     text: string
@@ -63,7 +67,9 @@ export function MarketplacePage({
   // Marketplace tier from active hosting plans. Demo default is 3 (the mock
   // data ships a VIP plan) so the whole flow is walkable without credentials.
   // Display/gating only — the Edge Functions re-derive the tier server-side.
-  const [userTier, setUserTier] = useState<UserMarketplaceTier>(3)
+  const [userTier, setUserTier] = useState<UserMarketplaceTier>(
+    isDemoMode ? 3 : 0,
+  )
 
   useEffect(() => {
     if (!supabase) return
@@ -72,11 +78,47 @@ export function MarketplacePage({
       if (!session) return
       fetchPlans(sb)
         .then((plans) => setUserTier(marketplaceTierForPlans(plans)))
-        .catch((error: unknown) => {
-          console.warn('Plans fetch failed; keeping demo tier:', error)
+        .catch(() => {
+          setUserTier(0)
+          setFeedback({
+            tone: 'warning',
+            text: 'We could not confirm your active hosting plan. Marketplace purchases are disabled until the connection recovers.',
+          })
         })
     })
   }, [])
+
+  useEffect(() => {
+    const reference = paymentReferenceFromSearch(searchParams)
+    if (!reference || !supabase || processedPaymentRef.current === reference) return
+    processedPaymentRef.current = reference
+
+    setBusyPluginId('payment-return')
+    setFeedback({ tone: 'warning', text: 'Confirming your payment securely…' })
+    settlePluginPaymentReturn(reference)
+      .then((purchase) => {
+        onPurchaseUpsert(purchase)
+        setFeedback({
+          tone: 'success',
+          text: 'Payment confirmed. Your licensed download is now available.',
+        })
+        const next = new URLSearchParams(searchParams)
+        next.delete('payment_return')
+        next.delete('reference')
+        next.delete('trxref')
+        setSearchParams(next, { replace: true })
+      })
+      .catch((error: unknown) => {
+        setFeedback({
+          tone: 'warning',
+          text:
+            error instanceof Error
+              ? error.message
+              : 'Payment confirmation failed. No purchase was recorded.',
+        })
+      })
+      .finally(() => setBusyPluginId(null))
+  }, [onPurchaseUpsert, searchParams, setSearchParams])
 
   const typedItems = plugins.filter(
     (plugin) => plugin.productType === productFilter,
@@ -114,6 +156,13 @@ export function MarketplacePage({
   }
 
   async function handlePluginAction(plugin: MarketplacePlugin) {
+    if (!isDemoMode && !plugin.hasDownloadAsset) {
+      setFeedback({
+        tone: 'warning',
+        text: 'This item is temporarily unavailable while its licensed asset is prepared.',
+      })
+      return
+    }
     if (userTier === 0 && !getPurchase(plugin.id)) {
       setFeedback({
         tone: 'warning',
@@ -220,13 +269,14 @@ export function MarketplacePage({
               ) : (
                 <Button
                   className="border-white/20 bg-white/10 text-white hover:bg-white/16"
-                  onClick={() => handlePluginAction(featuredPlugin)}
+                  disabled={!featuredPlugin || (!isDemoMode && !featuredPlugin.hasDownloadAsset)}
+                  onClick={() => featuredPlugin && handlePluginAction(featuredPlugin)}
                   variant="outline"
                 >
                   <ArrowDownToLine className="h-4 w-4" />
-                  {getPurchase(featuredPlugin.id)
+                  {featuredPlugin && getPurchase(featuredPlugin.id)
                     ? 'Download featured item'
-                    : isIncluded(featuredPlugin)
+                    : featuredPlugin && isIncluded(featuredPlugin)
                       ? 'Claim featured item'
                       : 'Buy featured item'}
                 </Button>
@@ -370,8 +420,8 @@ export function MarketplacePage({
                 Store posture
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                ZIP delivery is mocked locally for the MVP. Payment capture and signed
-                asset URLs can plug in behind the same interface later.
+                Purchases are verified server-side and licensed assets are delivered
+                with short-lived signed URLs.
               </p>
             </div>
           </CardContent>
@@ -501,11 +551,13 @@ export function MarketplacePage({
                     </Button>
                   ) : (
                     <Button
-                      disabled={isBusy}
+                      disabled={isBusy || (!isDemoMode && !plugin.hasDownloadAsset)}
                       onClick={() => handlePluginAction(plugin)}
                     >
                       <ArrowDownToLine className="h-4 w-4" />
-                      {isBusy
+                      {!isDemoMode && !plugin.hasDownloadAsset
+                        ? 'Asset temporarily unavailable'
+                        : isBusy
                         ? purchase
                           ? 'Preparing ZIP...'
                           : isIncluded(plugin)

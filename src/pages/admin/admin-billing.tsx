@@ -12,7 +12,7 @@ import {
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
 import { useSession } from '@/lib/session-store'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { cn, formatCurrency, formatDateLabel } from '@/lib/utils'
 import {
   Dialog,
@@ -71,8 +71,8 @@ export function AdminBilling() {
   const tabParam = searchParams.get('tab')
   const activeTab: Tab = tabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'invoices'
 
-  const [billing, setBilling] = useState<AdminBillingData>(mockAdminBilling)
-  const [profiles, setProfiles] = useState<AdminProfile[]>(mockAdminUsers)
+  const [billing, setBilling] = useState<AdminBillingData>(isDemoMode ? mockAdminBilling : { invoices: [], payments: [], orders: [], credits: [] })
+  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [invoiceForm, setInvoiceForm] = useState<InvoiceFormState>(emptyInvoiceForm)
   const [busyId, setBusyId] = useState<string | null>(null)

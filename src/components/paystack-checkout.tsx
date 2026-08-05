@@ -1,58 +1,53 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { generateRef, openPaystackCheckout } from '@/lib/paystack'
+
+import { initializePayment, type PaymentPurpose } from '@/lib/functions'
+import { navigateToPaystackCheckout } from '@/lib/paystack'
+import { supabase } from '@/lib/supabase'
 
 interface PaystackCheckoutProps {
-  email: string
-  amountNgn: number
-  description: string
-  onSuccess: (reference: string) => void
+  payment: PaymentPurpose
   onError?: (message: string) => void
   className?: string
   label?: string
 }
-
 export function PaystackCheckout({
-  email,
-  amountNgn,
-  description,
-  onSuccess,
+  payment,
   onError,
   className,
   label = 'Pay Now',
 }: PaystackCheckoutProps) {
   const [loading, setLoading] = useState(false)
 
-  function handleClick() {
+  async function handleClick() {
+    if (!supabase) {
+      onError?.('Payments are unavailable in demo mode.')
+      return
+    }
+
     setLoading(true)
-    openPaystackCheckout({
-      email,
-      amountNgn,
-      ref: generateRef(),
-      metadata: { description },
-      onSuccess: (ref) => {
-        setLoading(false)
-        onSuccess(ref)
-      },
-      onCancel: () => setLoading(false),
-      onError: (message) => {
-        setLoading(false)
-        onError?.(message)
-      },
-    })
+    try {
+      const { authorizationUrl } = await initializePayment(supabase, payment)
+      navigateToPaystackCheckout(authorizationUrl)
+    } catch (error) {
+      setLoading(false)
+      onError?.(error instanceof Error ? error.message : 'Unable to start checkout.')
+    }
   }
 
   return (
     <button
+      aria-busy={loading}
       className={
         className ??
-        'inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-[10px] font-bold text-white transition disabled:opacity-50'
+        'inline-flex min-h-11 items-center gap-1.5 rounded bg-[#5c4df0] px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-[#4d3fe0] disabled:opacity-50'
       }
       disabled={loading}
-      onClick={handleClick}
+      onClick={() => void handleClick()}
+      type="button"
     >
-      {loading && <Loader2 className="h-3 w-3 animate-spin" />}
-      {label}
+      {loading && <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />}
+      {loading ? 'Opening checkout…' : label}
     </button>
   )
 }

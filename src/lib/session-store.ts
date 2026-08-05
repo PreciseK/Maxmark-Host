@@ -8,7 +8,7 @@ export interface SessionContextValue {
   session: Session | null
   /** True when the signed-in user holds the 'admin' role in user_roles. */
   isAdmin: boolean
-  /** True when Supabase env vars are absent and the app runs on mock data. */
+  /** True only when VITE_DEMO_MODE explicitly enables sample data. */
   isDemo: boolean
   /** The signed-in user's avatar (R2 public URL), if one has been uploaded. */
   avatarUrl: string | null

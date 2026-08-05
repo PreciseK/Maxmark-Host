@@ -30,7 +30,6 @@ interface DbPluginRow {
   status: string
   has_download_asset: boolean
 }
-
 interface DbPurchaseRow {
   id: string
   user_id: string
@@ -120,25 +119,4 @@ export async function fetchPurchases(supabase: SupabaseClient): Promise<PluginPu
 
   if (error) throw error
   return (data as DbPurchaseRow[]).map(mapDbPurchaseToPluginPurchase)
-}
-
-// Licence rows are created server-side by the verify-payment Edge Function.
-// The client is only allowed to update download bookkeeping on rows it owns
-// (RLS: update-own policy; there is intentionally no client insert policy).
-export async function updatePurchaseDownloadState(
-  supabase: SupabaseClient,
-  purchase: PluginPurchase,
-): Promise<PluginPurchase | null> {
-  const { data, error } = await supabase
-    .from('plugin_purchases')
-    .update({
-      download_count: purchase.downloadCount,
-      last_downloaded_at: purchase.lastDownloadedAt,
-    })
-    .eq('id', purchase.id)
-    .select()
-    .maybeSingle()
-
-  if (error) throw error
-  return data ? mapDbPurchaseToPluginPurchase(data as DbPurchaseRow) : null
 }

@@ -55,16 +55,22 @@ export function provisionSiteViaFunction(
   })
 }
 
+export type PaymentPurpose =
+  | { purpose: 'invoice'; invoiceId: string }
+  | { purpose: 'plugin'; pluginId: string }
+
+export function initializePayment(
+  supabase: SupabaseClient,
+  payment: PaymentPurpose,
+): Promise<{ authorizationUrl: string; reference: string }> {
+  return invoke(supabase, 'initialize-payment', payment)
+}
+
 export function verifyInvoicePayment(
   supabase: SupabaseClient,
   reference: string,
-  invoiceId: string,
 ): Promise<{ invoiceId: string; status: string } | { alreadyPaid: true }> {
-  return invoke(supabase, 'verify-payment', {
-    purpose: 'invoice',
-    reference,
-    invoiceId,
-  })
+  return invoke(supabase, 'verify-payment', { reference })
 }
 
 type DbPurchaseRow = Parameters<typeof mapDbPurchaseToPluginPurchase>[0]
@@ -72,13 +78,10 @@ type DbPurchaseRow = Parameters<typeof mapDbPurchaseToPluginPurchase>[0]
 export async function verifyPluginPayment(
   supabase: SupabaseClient,
   reference: string,
-  pluginId: string,
 ): Promise<PluginPurchase> {
-  const { purchase } = await invoke<{ purchase: DbPurchaseRow }>(
-    supabase,
-    'verify-payment',
-    { purpose: 'plugin', reference, pluginId },
-  )
+  const { purchase } = await invoke<{ purchase: DbPurchaseRow }>(supabase, 'verify-payment', {
+    reference,
+  })
 
   return mapDbPurchaseToPluginPurchase(purchase)
 }

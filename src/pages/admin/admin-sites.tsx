@@ -13,7 +13,7 @@ import {
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
 import { useSession } from '@/lib/session-store'
-import { supabase } from '@/lib/supabase'
+import { isDemoMode, supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
@@ -45,9 +45,9 @@ export function AdminSites() {
   const { isDemo } = useSession()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [sites, setSites] = useState<AdminSiteRow[]>(mockAdminSites)
-  const [nodes, setNodes] = useState<HostingNode[]>(mockNodes)
-  const [profiles, setProfiles] = useState<AdminProfile[]>(mockAdminUsers)
+  const [sites, setSites] = useState<AdminSiteRow[]>(isDemoMode ? mockAdminSites : [])
+  const [nodes, setNodes] = useState<HostingNode[]>(isDemoMode ? mockNodes : [])
+  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
   const [search, setSearch] = useState('')
   const [busySiteId, setBusySiteId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ kind: 'demo' | 'error'; text?: string } | null>(

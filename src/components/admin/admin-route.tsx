@@ -6,9 +6,8 @@ import { useSession } from '@/lib/session-store'
 /**
  * Gate for the /admin tree.
  *
- * Demo mode (no Supabase env vars) renders freely — the whole app runs on
- * mock data with zero config, and /admin follows the same philosophy. With
- * Supabase configured, a session is required and the user must hold the
+ * Explicit demo mode renders sample data. In live mode a session is required
+ * and the user must hold the
  * 'admin' role in user_roles.
  */
 export function AdminRoute({ children }: { children: ReactNode }) {

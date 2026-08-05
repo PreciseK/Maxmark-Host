@@ -33,7 +33,7 @@ Highest active plan wins.
 
 ## Data model
 
-`schema.sql` (idempotent) + `migrations/002_marketplace_tiers.sql` for
+`schema.sql` (idempotent) + `migrations/20260701000300_marketplace_tiers.sql` for
 existing databases.
 
 - `marketplace_plugins` (conceptually "marketplace items"; table not renamed):
