@@ -142,7 +142,8 @@ export interface WhmResponse {
 export type WhmRequestExecutor = (request: WhmRequest) => Promise<WhmResponse>
 
 function buildWhmUrl(env: ProvisionerEnv, query: Record<string, string>) {
-  const url = new URL(`https://${env.WHM_HOST}:${env.WHM_PORT}${requestPath}`)
+  const cleanHost = env.WHM_HOST.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').trim()
+  const url = new URL(`https://${cleanHost}:${env.WHM_PORT}${requestPath}`)
   for (const [key, value] of Object.entries(query)) {
     url.searchParams.set(key, value)
   }
