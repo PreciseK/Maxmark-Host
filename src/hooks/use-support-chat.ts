@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
-  cannedAdminReply,
-  DEMO_ADMIN_ID,
-  DEMO_USER_ID,
-  mockConversations,
-  mockMessagesByConversation,
-} from '@/data/mockSupport'
-import {
   createConversation,
   fetchConversations,
   fetchMessages,
@@ -20,11 +13,6 @@ import { subscribeToConversationMessages } from '@/lib/support-realtime'
 import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { uploadChatAttachment } from '@/lib/storage'
-
-// Customer-side chat state shared by the floating widget and /support.
-// Explicit demo mode runs entirely on mockSupport data with a canned
-// auto-reply so the chat feels alive; live mode uses RLS reads/writes plus a
-// realtime subscription on the open thread.
 
 export interface UseSupportChat {
   conversations: SupportConversation[]
@@ -41,27 +29,15 @@ export interface UseSupportChat {
 }
 
 export function useSupportChat(): UseSupportChat {
-  const { session, isDemo, setSupportUnread } = useSession()
-  const [conversations, setConversations] = useState<SupportConversation[]>(
-    isDemo ? mockConversations : [],
-  )
-  const [messagesByConv, setMessagesByConv] = useState<Record<string, SupportMessage[]>>(
-    isDemo ? mockMessagesByConversation : {},
-  )
+  const { session } = useSession()
+  const [conversations, setConversations] = useState<SupportConversation[]>([])
+  const [messagesByConv, setMessagesByConv] = useState<Record<string, SupportMessage[]>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = activeId
-
-  // Demo badge follows the local list (an effect — never setState another
-  // component's state from inside a setConversations updater). Live mode's
-  // badge is owned by SessionProvider's realtime subscription instead.
-  useEffect(() => {
-    if (!isDemo) return
-    setSupportUnread(conversations.reduce((sum, c) => sum + c.userUnreadCount, 0))
-  }, [isDemo, conversations, setSupportUnread])
 
   // Live: load the customer's conversations once a session exists.
   useEffect(() => {
@@ -156,38 +132,6 @@ export function useSupportChat(): UseSupportChat {
     )
   }, [])
 
-  const scheduleDemoReply = useCallback(
-    (conversationId: string) => {
-      window.setTimeout(() => {
-        const reply: SupportMessage = {
-          id: `demo-reply-${Date.now()}`,
-          conversationId,
-          senderId: DEMO_ADMIN_ID,
-          senderRole: 'admin',
-          body: cannedAdminReply,
-          attachment: null,
-          createdAt: new Date().toISOString(),
-        }
-        appendLocal(reply)
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === conversationId
-              ? {
-                  ...c,
-                  lastMessageAt: reply.createdAt,
-                  lastMessagePreview: reply.body.slice(0, 120),
-                  status: 'pending' as const,
-                  userUnreadCount:
-                    activeIdRef.current === conversationId ? 0 : c.userUnreadCount + 1,
-                }
-              : c,
-          ),
-        )
-      }, 1500)
-    },
-    [appendLocal],
-  )
-
   const send = useCallback(
     async (body: string) => {
       const trimmed = body.trim()
@@ -196,19 +140,7 @@ export function useSupportChat(): UseSupportChat {
 
       setError(null)
 
-      if (isDemo || !supabase || !session) {
-        appendLocal({
-          id: `demo-msg-${Date.now()}`,
-          conversationId,
-          senderId: DEMO_USER_ID,
-          senderRole: 'user',
-          body: trimmed,
-          attachment: null,
-          createdAt: new Date().toISOString(),
-        })
-        scheduleDemoReply(conversationId)
-        return
-      }
+      if (!supabase || !session) return
 
       setSending(true)
       try {
@@ -220,7 +152,7 @@ export function useSupportChat(): UseSupportChat {
         setSending(false)
       }
     },
-    [isDemo, session, appendLocal, scheduleDemoReply],
+    [session, appendLocal],
   )
 
   const attach = useCallback(
@@ -229,19 +161,7 @@ export function useSupportChat(): UseSupportChat {
       if (!conversationId) return
       setError(null)
 
-      if (isDemo || !supabase || !session) {
-        appendLocal({
-          id: `demo-attach-${Date.now()}`,
-          conversationId,
-          senderId: DEMO_USER_ID,
-          senderRole: 'user',
-          body: '',
-          attachment: { key: `demo/${file.name}`, name: file.name, size: file.size, type: file.type },
-          createdAt: new Date().toISOString(),
-        })
-        scheduleDemoReply(conversationId)
-        return
-      }
+      if (!supabase || !session) return
 
       setAttaching(true)
       try {
@@ -254,7 +174,7 @@ export function useSupportChat(): UseSupportChat {
         setAttaching(false)
       }
     },
-    [isDemo, session, appendLocal, scheduleDemoReply],
+    [session, appendLocal],
   )
 
   const createCase = useCallback(
@@ -268,38 +188,7 @@ export function useSupportChat(): UseSupportChat {
 
       setError(null)
 
-      if (isDemo || !supabase || !session) {
-        const now = new Date().toISOString()
-        const conversation: SupportConversation = {
-          id: `demo-conv-${Date.now()}`,
-          userId: DEMO_USER_ID,
-          subject: trimmedSubject,
-          status: 'open',
-          lastMessageAt: now,
-          lastMessagePreview: trimmedBody.slice(0, 120),
-          userUnreadCount: 0,
-          adminUnreadCount: 1,
-          createdAt: now,
-        }
-        setConversations((prev) => [conversation, ...prev])
-        setMessagesByConv((prev) => ({
-          ...prev,
-          [conversation.id]: [
-            {
-              id: `demo-msg-${Date.now()}`,
-              conversationId: conversation.id,
-              senderId: DEMO_USER_ID,
-              senderRole: 'user',
-              body: trimmedBody,
-              attachment: null,
-              createdAt: now,
-            },
-          ],
-        }))
-        setActiveId(conversation.id)
-        scheduleDemoReply(conversation.id)
-        return conversation.id
-      }
+      if (!supabase || !session) return null
 
       setSending(true)
       try {
@@ -319,7 +208,7 @@ export function useSupportChat(): UseSupportChat {
         setSending(false)
       }
     },
-    [isDemo, session, scheduleDemoReply],
+    [session],
   )
 
   return {

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { mockAdminUsers } from '@/data/mockAdmin'
-import { DEMO_ADMIN_ID, mockConversations, mockMessagesByConversation } from '@/data/mockSupport'
 import { fetchAllProfiles, type AdminProfile } from '@/lib/db/admin'
 import {
   fetchAdminInbox,
@@ -18,13 +16,12 @@ import {
   subscribeToConversationMessages,
 } from '@/lib/support-realtime'
 import { useSession } from '@/lib/session-store'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { uploadChatAttachment, getChatAttachmentUrl } from '@/lib/storage'
 import { cn, formatDateLabel } from '@/lib/utils'
 import { MessageThread } from '@/components/support/message-thread'
 import {
   AdminPageHeader,
-  DemoNotice,
   StatusBadge,
   type BadgeTone,
 } from '@/components/admin/admin-ui'
@@ -38,26 +35,19 @@ const statusTone: Record<ConversationStatus, BadgeTone> = {
 const statusFilters = ['all', 'open', 'pending', 'closed'] as const
 type StatusFilter = (typeof statusFilters)[number]
 
-// Defensive refetch cadence: realtime delivery of other users' rows depends
-// on RLS-authorized sockets, so the inbox also re-pulls periodically.
 const INBOX_POLL_MS = 15_000
 
 export function AdminSupport() {
-  const { session, isDemo, setAdminSupportUnread } = useSession()
+  const { session, setAdminSupportUnread } = useSession()
 
-  const [conversations, setConversations] = useState<SupportConversation[]>(
-    isDemo ? mockConversations : [],
-  )
-  const [messagesByConv, setMessagesByConv] = useState<Record<string, SupportMessage[]>>(
-    isDemo ? mockMessagesByConversation : {},
-  )
-  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
+  const [conversations, setConversations] = useState<SupportConversation[]>([])
+  const [messagesByConv, setMessagesByConv] = useState<Record<string, SupportMessage[]>>({})
+  const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [sending, setSending] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showDemoNotice, setShowDemoNotice] = useState(false)
 
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = activeId
@@ -92,7 +82,7 @@ export function AdminSupport() {
 
   // Live: initial load + realtime + polling fallback.
   useEffect(() => {
-    if (!supabase || !session || isDemo) return
+    if (!supabase || !session) return
     const sb = supabase
     let cancelled = false
 
@@ -124,11 +114,11 @@ export function AdminSupport() {
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [session, isDemo, upsertConversation])
+  }, [session, upsertConversation])
 
   // Live: messages for the open thread.
   useEffect(() => {
-    if (!supabase || !session || isDemo || !activeId) return
+    if (!supabase || !session || !activeId) return
     const sb = supabase
 
     fetchMessages(sb, activeId)
@@ -147,7 +137,7 @@ export function AdminSupport() {
     })
 
     return unsubscribe
-  }, [session, isDemo, activeId])
+  }, [session, activeId])
 
   const profileByUser = useMemo(
     () => new Map(profiles.map((p) => [p.userId, p.displayName || p.accountId])),
@@ -168,7 +158,7 @@ export function AdminSupport() {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, adminUnreadCount: 0 } : c)),
     )
-    if (supabase && session && !isDemo) {
+    if (supabase && session) {
       void markConversationRead(supabase, id, 'admin').catch(() => undefined)
     }
   }
@@ -204,19 +194,7 @@ export function AdminSupport() {
     if (!conversationId) return
     setError(null)
 
-    if (isDemo || !supabase || !session) {
-      applyLocal({
-        id: `demo-admin-msg-${Date.now()}`,
-        conversationId,
-        senderId: DEMO_ADMIN_ID,
-        senderRole: 'admin',
-        body,
-        attachment: null,
-        createdAt: new Date().toISOString(),
-      })
-      setShowDemoNotice(true)
-      return
-    }
+    if (!supabase || !session) return
 
     setSending(true)
     try {
@@ -234,19 +212,7 @@ export function AdminSupport() {
     if (!conversationId) return
     setError(null)
 
-    if (isDemo || !supabase || !session) {
-      applyLocal({
-        id: `demo-admin-attach-${Date.now()}`,
-        conversationId,
-        senderId: DEMO_ADMIN_ID,
-        senderRole: 'admin',
-        body: '',
-        attachment: { key: `demo/${file.name}`, name: file.name, size: file.size, type: file.type },
-        createdAt: new Date().toISOString(),
-      })
-      setShowDemoNotice(true)
-      return
-    }
+    if (!supabase || !session) return
 
     setAttaching(true)
     try {
@@ -262,7 +228,7 @@ export function AdminSupport() {
 
   async function handleOpenAttachment(message: SupportMessage) {
     if (!message.attachment) return
-    if (isDemo || !supabase || !session) return
+    if (!supabase || !session) return
     setError(null)
     try {
       const url = await getChatAttachmentUrl(supabase, message.id)
@@ -281,11 +247,7 @@ export function AdminSupport() {
         prev.map((c) => (c.id === conversationId ? { ...c, status } : c)),
       )
 
-    if (isDemo || !supabase || !session) {
-      apply()
-      setShowDemoNotice(true)
-      return
-    }
+    if (!supabase || !session) return
 
     try {
       await setConversationStatus(supabase, conversationId, status)
@@ -301,8 +263,6 @@ export function AdminSupport() {
         description="Live customer conversations. Replies deliver instantly to the customer's chat widget."
         title="Support inbox"
       />
-
-      {showDemoNotice ? <DemoNotice /> : null}
 
       <div className="flex-1 min-h-[520px] grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-0 bg-[#161619] border border-[#232328] rounded-lg overflow-hidden">
         {/* Conversation list */}

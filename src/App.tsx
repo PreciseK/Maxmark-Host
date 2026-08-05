@@ -4,15 +4,17 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { ConfigurationError } from '@/components/configuration-error'
 import { CustomerRoute } from '@/components/customer-route'
-import { initialPluginPurchases, marketplacePlugins } from '@/data/mockMarketplace'
-import { mockSites } from '@/data/mockSites'
 import { fetchSites } from '@/lib/db/sites'
 import { fetchPlugins, fetchPurchases } from '@/lib/db/marketplace'
-import { configurationError, isDemoMode, supabase } from '@/lib/supabase'
+import { configurationError, supabase } from '@/lib/supabase'
 import { SessionProvider } from '@/lib/session-context'
 import { DashboardShell } from '@/layouts/dashboard-shell'
-import type { PluginPurchase } from '@/types/marketplace'
+import type { MarketplacePlugin, PluginPurchase } from '@/types/marketplace'
 import type { ManagedSite } from '@/types/provisioning'
+
+import { MarketplacePage } from '@/pages/marketplace-page'
+import { SiteDetailPage } from '@/pages/site-detail-page'
+import { SitesPage } from '@/pages/sites-page'
 
 const lazyPage = <T extends Record<string, unknown>, K extends keyof T>(
   loader: () => Promise<T>,
@@ -25,10 +27,7 @@ const DomainsPage = lazyPage(() => import('@/pages/domains-page'), 'DomainsPage'
 const DnsZonesPage = lazyPage(() => import('@/pages/dns-zones-page'), 'DnsZonesPage')
 const SupportPage = lazyPage(() => import('@/pages/support-page'), 'SupportPage')
 const BillingPage = lazyPage(() => import('@/pages/billing-page'), 'BillingPage')
-const MarketplacePage = lazy(() => import('@/pages/marketplace-page').then((m) => ({ default: m.MarketplacePage })))
-const SiteDetailPage = lazy(() => import('@/pages/site-detail-page').then((m) => ({ default: m.SiteDetailPage })))
 const SslPage = lazyPage(() => import('@/pages/ssl-page'), 'SslPage')
-const SitesPage = lazy(() => import('@/pages/sites-page').then((m) => ({ default: m.SitesPage })))
 const LegalPage = lazyPage(() => import('@/pages/legal-page'), 'LegalPage')
 
 // The login page pulls in three.js / react-three-fiber for its shader
@@ -44,11 +43,9 @@ const AdminArea = lazy(() =>
 )
 
 function App() {
-  const [sites, setSites] = useState<ManagedSite[]>(isDemoMode ? mockSites : [])
-  const [plugins, setPlugins] = useState(isDemoMode ? marketplacePlugins : [])
-  const [pluginPurchases, setPluginPurchases] = useState<PluginPurchase[]>(
-    isDemoMode ? initialPluginPurchases : [],
-  )
+  const [sites, setSites] = useState<ManagedSite[]>([])
+  const [plugins, setPlugins] = useState<MarketplacePlugin[]>([])
+  const [pluginPurchases, setPluginPurchases] = useState<PluginPurchase[]>([])
   const [dataError, setDataError] = useState<string | null>(null)
 
   // Load live data from Supabase whenever a session appears; drop back to

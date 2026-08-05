@@ -1,11 +1,11 @@
+
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowUpDown, Search } from 'lucide-react'
 
-import { mockAdminUsers } from '@/data/mockAdmin'
 import { fetchAllProfiles } from '@/lib/db/admin'
 import { listUsersViaFunction, type AdminListedUser } from '@/lib/functions'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import {
   AdminPageHeader,
@@ -24,9 +24,7 @@ const PAGE_SIZE = 25
 
 export function AdminUsers() {
   const navigate = useNavigate()
-  const [users, setUsers] = useState<AdminListedUser[]>(
-    isDemoMode ? mockAdminUsers.map((u) => ({ ...u, avatarUrl: null })) : [],
-  )
+  const [users, setUsers] = useState<AdminListedUser[]>([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
@@ -58,7 +56,7 @@ export function AdminUsers() {
             )
           }
         } catch (fallbackError) {
-          console.warn('Profile fallback failed, keeping demo data:', fallbackError)
+          console.warn('Profile fallback failed:', fallbackError)
         }
       }
     }

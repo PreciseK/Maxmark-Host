@@ -10,13 +10,6 @@ import {
 } from 'lucide-react'
 
 import {
-  mockAdminStats,
-  mockAuditLog,
-  mockNodes,
-  mockRevenueTrend,
-  mockSignupTrend,
-} from '@/data/mockAdmin'
-import {
   fetchAdminStats,
   fetchAuditLog,
   fetchNodes,
@@ -24,7 +17,7 @@ import {
   type AuditEntry,
   type HostingNode,
 } from '@/lib/db/admin'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDateLabel, formatPercent } from '@/lib/utils'
 import { StatCard } from '@/components/admin/stat-card'
 
@@ -41,9 +34,9 @@ const actionLabels: Record<string, string> = {
 }
 
 export function AdminOverview() {
-  const [stats, setStats] = useState<AdminStats>(isDemoMode ? mockAdminStats : { totalUsers: 0, totalSites: 0, activeSites: 0, failedSites: 0, suspendedSites: 0, slotsUsed: 0, slotsTotal: 0, revenueNgn: 0, openConversations: 0 })
-  const [nodes, setNodes] = useState<HostingNode[]>(isDemoMode ? mockNodes : [])
-  const [audit, setAudit] = useState<AuditEntry[]>(isDemoMode ? mockAuditLog : [])
+  const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, totalSites: 0, activeSites: 0, failedSites: 0, suspendedSites: 0, slotsUsed: 0, slotsTotal: 0, revenueNgn: 0, openConversations: 0 })
+  const [nodes, setNodes] = useState<HostingNode[]>([])
+  const [audit, setAudit] = useState<AuditEntry[]>([])
 
   useEffect(() => {
     if (!supabase) return
@@ -86,7 +79,6 @@ export function AdminOverview() {
           icon={<Users className="h-4 w-4 text-muted-foreground" />}
           label="Customers"
           sub="registered accounts"
-          trend={mockSignupTrend}
           value={String(stats.totalUsers)}
         />
         <StatCard
@@ -105,7 +97,6 @@ export function AdminOverview() {
           icon={<CircleDollarSign className="h-4 w-4 text-muted-foreground" />}
           label="Revenue"
           sub="successful payments, all time"
-          trend={mockRevenueTrend}
           value={formatCurrency(stats.revenueNgn)}
         />
         <StatCard

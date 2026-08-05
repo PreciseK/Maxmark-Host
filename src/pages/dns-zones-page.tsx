@@ -3,20 +3,10 @@ import { Link } from 'react-router-dom'
 import { ArrowUpDown, MoreVertical, Search } from 'lucide-react'
 
 import { fetchDnsZones, type DnsZone } from '@/lib/db/dns-zones'
-import { isDemoMode, supabase } from '@/lib/supabase'
-
-const MOCK_ZONES: DnsZone[] = [
-  {
-    id: 'zone-1',
-    zoneName: 'completeproperty.co.za',
-    recordCount: 14,
-    contact: 'hostmaster@completeproperty.co.za',
-    createdAt: new Date().toISOString(),
-  },
-]
+import { supabase } from '@/lib/supabase'
 
 export function DnsZonesPage() {
-  const [zones, setZones] = useState<DnsZone[]>(isDemoMode ? MOCK_ZONES : [])
+  const [zones, setZones] = useState<DnsZone[]>([])
   const [loadError, setLoadError] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 
-import { mockAdminSites, mockAdminUsers, mockNodes } from '@/data/mockAdmin'
 import {
   fetchAllProfiles,
   fetchAllSitesAdmin,
@@ -12,13 +11,11 @@ import {
   type HostingNode,
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
-import { useSession } from '@/lib/session-store'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
   AdminPageHeader,
-  DemoNotice,
   EmptyRow,
   StatusBadge,
   TableCard,
@@ -42,12 +39,11 @@ const statusFilters = ['all', 'active', 'provisioning', 'suspended', 'failed'] a
 type StatusFilter = (typeof statusFilters)[number]
 
 export function AdminSites() {
-  const { isDemo } = useSession()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [sites, setSites] = useState<AdminSiteRow[]>(isDemoMode ? mockAdminSites : [])
-  const [nodes, setNodes] = useState<HostingNode[]>(isDemoMode ? mockNodes : [])
-  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
+  const [sites, setSites] = useState<AdminSiteRow[]>([])
+  const [nodes, setNodes] = useState<HostingNode[]>([])
+  const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [search, setSearch] = useState('')
   const [busySiteId, setBusySiteId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ kind: 'demo' | 'error'; text?: string } | null>(
@@ -113,13 +109,7 @@ export function AdminSites() {
   async function handleStatusToggle(site: AdminSiteRow) {
     const nextStatus = site.status === 'suspended' ? 'active' : 'suspended'
 
-    if (isDemo || !supabase) {
-      setSites((prev) =>
-        prev.map((s) => (s.id === site.id ? { ...s, status: nextStatus } : s)),
-      )
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
 
     setBusySiteId(site.id)
     setFeedback(null)
@@ -151,7 +141,6 @@ export function AdminSites() {
         title="Sites"
       />
 
-      {feedback?.kind === 'demo' ? <DemoNotice /> : null}
       {feedback?.kind === 'error' ? (
         <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
           {feedback.text}

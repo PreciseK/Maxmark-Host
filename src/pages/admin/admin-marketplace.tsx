@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Star, Upload } from 'lucide-react'
 
-import { mockAdminPlugins, mockAdminPurchases, mockAdminUsers } from '@/data/mockAdmin'
 import {
   fetchAdminPlugins,
   fetchAdminPurchases,
@@ -13,8 +12,7 @@ import {
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
 import { getPluginUploadUrl } from '@/lib/storage'
-import { useSession } from '@/lib/session-store'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import {
   Dialog,
@@ -26,7 +24,6 @@ import {
 } from '@/components/ui/dialog'
 import {
   AdminPageHeader,
-  DemoNotice,
   EmptyRow,
   StatusBadge,
   TableCard,
@@ -126,10 +123,9 @@ function mapFunctionPlugin(row: Record<string, unknown>): AdminPluginRow {
 }
 
 export function AdminMarketplace() {
-  const { isDemo } = useSession()
-  const [plugins, setPlugins] = useState<AdminPluginRow[]>(isDemoMode ? mockAdminPlugins : [])
-  const [purchases, setPurchases] = useState<AdminPurchaseRow[]>(isDemoMode ? mockAdminPurchases : [])
-  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
+  const [plugins, setPlugins] = useState<AdminPluginRow[]>([])
+  const [purchases, setPurchases] = useState<AdminPurchaseRow[]>([])
+  const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<PluginFormState>(emptyPluginForm)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -145,11 +141,7 @@ export function AdminMarketplace() {
       setFeedback({ kind: 'error', text: 'Save the item once before uploading its ZIP.' })
       return
     }
-    if (isDemo || !supabase) {
-      setForm((p) => ({ ...p, downloadAssetPath: `demo/${file.name}` }))
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
     setUploadBusy(true)
     setFeedback(null)
     try {
@@ -187,7 +179,7 @@ export function AdminMarketplace() {
         setPurchases(livePurchases)
         setProfiles(liveProfiles)
       } catch (error) {
-        console.warn('Admin marketplace fetch failed, keeping demo data:', error)
+        console.warn('Admin marketplace fetch failed:', error)
       }
     }
 
@@ -247,39 +239,8 @@ export function AdminMarketplace() {
       return
     }
 
-    if (isDemo || !supabase) {
-      const fromForm = (base: Pick<AdminPluginRow, 'id' | 'rating' | 'createdAt'>): AdminPluginRow => ({
-        ...base,
-        slug: state.slug.trim(),
-        name: state.name.trim(),
-        tagline: state.tagline.trim(),
-        description: state.description.trim(),
-        category: state.category.trim(),
-        productType: state.productType,
-        tier: Number(state.tier),
-        version: state.version.trim(),
-        requiresWordpress: state.requiresWordpress.trim(),
-        requiresPhp: state.requiresPhp.trim(),
-        priceNgn: price,
-        status: state.status,
-        featured: state.featured,
-        installsLabel: state.installsLabel.trim(),
-        downloadAssetPath: state.downloadAssetPath,
-      })
-      if (state.id) {
-        setPlugins((prev) => prev.map((p) => (p.id === state.id ? fromForm(p) : p)))
-      } else {
-        setPlugins((prev) => [
-          fromForm({
-            id: `demo-plg-${Date.now()}`,
-            rating: 0,
-            createdAt: new Date().toISOString(),
-          }),
-          ...prev,
-        ])
-      }
-      setDialogOpen(false)
-      setFeedback({ kind: 'demo' })
+    if (!supabase) {
+      setFeedback({ kind: 'error', text: 'Supabase connection required.' })
       return
     }
 
@@ -312,11 +273,7 @@ export function AdminMarketplace() {
     patch: Partial<Pick<AdminPluginRow, 'status' | 'featured'>>,
   ) {
     const nextState = formFromPlugin({ ...plugin, ...patch })
-    if (isDemo || !supabase) {
-      setPlugins((prev) => prev.map((p) => (p.id === plugin.id ? { ...p, ...patch } : p)))
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
     setBusyId(plugin.id)
     setFeedback(null)
     try {
@@ -340,13 +297,7 @@ export function AdminMarketplace() {
     purchase: AdminPurchaseRow,
     status: 'active' | 'revoked' | 'refunded',
   ) {
-    if (isDemo || !supabase) {
-      setPurchases((prev) =>
-        prev.map((p) => (p.id === purchase.id ? { ...p, status } : p)),
-      )
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
     setBusyId(purchase.id)
     setFeedback(null)
     try {
@@ -382,7 +333,6 @@ export function AdminMarketplace() {
         title="Marketplace"
       />
 
-      {feedback?.kind === 'demo' ? <DemoNotice /> : null}
       {feedback?.kind === 'error' ? (
         <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
           {feedback.text}
@@ -393,7 +343,6 @@ export function AdminMarketplace() {
           {feedback.text}
         </p>
       ) : null}
-
       <TableCard footer={<span>{plugins.length} catalog items</span>} title="Catalog">
         <table className={tableClass}>
           <thead>

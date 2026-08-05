@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowUpDown, MoreVertical, CreditCard, Plus, Trash2 } from 'lucide-react'
-import { fetchBillingData } from '@/lib/db/billing'
-import type { BillingData, Invoice, Payment, PaymentMethod, Order, Credit } from '@/lib/db/billing'
+import { fetchBillingData, type BillingData, type PaymentMethod } from '@/lib/db/billing'
 import { verifyInvoicePayment } from '@/lib/functions'
 import { paymentReferenceFromSearch } from '@/lib/paystack'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { PaystackCheckout } from '@/components/paystack-checkout'
 
 const fmt = new Intl.DateTimeFormat('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -14,55 +13,17 @@ const fmtNgn = (n: number) =>
   new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n)
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-const MOCK_INVOICES: Invoice[] = [
-  { id: 'inv-1',  subscriptionId: '#2756134', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'unpaid', dueDate: '2026-03-15', totalNgn: 313434, createdAt: '' },
-  { id: 'inv-2',  subscriptionId: '#2750159', description: 'Domain Registration - .co.za: completeproperty.co.za',                        status: 'unpaid', dueDate: '2026-03-08', totalNgn: 42075,  createdAt: '' },
-  { id: 'inv-3',  subscriptionId: '#2490186', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2025-03-14', totalNgn: 313434, createdAt: '' },
-  { id: 'inv-4',  subscriptionId: '#2484884', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'denied', dueDate: '2025-03-14', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-5',  subscriptionId: '#2480344', description: 'Domain Registration - .co.za: completeproperty.co.za',                        status: 'paid',   dueDate: '2025-03-08', totalNgn: 42075,  createdAt: '' },
-  { id: 'inv-6',  subscriptionId: '#2467700', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2025-07-29', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-7',  subscriptionId: '#2438881', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2025-07-29', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-8',  subscriptionId: '#2415682', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-12-14', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-9',  subscriptionId: '#2392639', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-11-14', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-10', subscriptionId: '#2389281', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-10-14', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-11', subscriptionId: '#2345833', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-10-14', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-12', subscriptionId: '#2321940', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-08-24', totalNgn: 31350,  createdAt: '' },
-  { id: 'inv-13', subscriptionId: '#2297427', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-07-14', totalNgn: 7837,   createdAt: '' },
-  { id: 'inv-14', subscriptionId: '#2273011', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-06-14', totalNgn: 7837,   createdAt: '' },
-  { id: 'inv-15', subscriptionId: '#2247140', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-05-14', totalNgn: 7837,   createdAt: '' },
-  { id: 'inv-16', subscriptionId: '#2221835', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-04-14', totalNgn: 7837,   createdAt: '' },
-  { id: 'inv-17', subscriptionId: '#2202933', description: 'maxmarkagency@gmail.com - #2202933',                                          status: 'paid',   dueDate: '2024-03-08', totalNgn: 0,      createdAt: '' },
-  { id: 'inv-18', subscriptionId: '#2195390', description: 'VIP - WordPress VIP Plan - 84dba1eae1.nxcli.io - 165.84.219.136 - clou...', status: 'paid',   dueDate: '2024-03-14', totalNgn: 7837,   createdAt: '' },
-  { id: 'inv-19', subscriptionId: '#2181781', description: 'VIP WordPress',                                                               status: 'paid',   dueDate: '2024-02-14', totalNgn: 7837,   createdAt: '' },
-]
-
-const MOCK_PAYMENTS: Payment[] = [
-  { id: 'p-1', transactionId: 'TXN-874215', invoiceId: null, paymentMethodLabel: 'Paystack · Visa ****4111', amountNgn: 313434, status: 'successful', paidAt: '2025-03-14T00:00:00Z' },
-  { id: 'p-2', transactionId: 'TXN-872241', invoiceId: null, paymentMethodLabel: 'Paystack · Visa ****4111', amountNgn: 42075,  status: 'successful', paidAt: '2025-03-08T00:00:00Z' },
-]
-
-const MOCK_METHODS: PaymentMethod[] = [
-  { id: 'pm-1', label: 'Visa ending in 4111', lastFour: '4111', cardBrand: 'visa', expiresAt: '12/2028', isDefault: true },
-]
-
-const MOCK_ORDERS: Order[] = [
-  { id: 'o-1', orderRef: 'ORD-984210', product: 'WordPress VIP Plan - completeproperty.co.za',  totalLabel: '₦313,434 / yr', status: 'active', orderedAt: '2026-03-01T00:00:00Z' },
-  { id: 'o-2', orderRef: 'ORD-975019', product: 'Domain Registration - completeproperty.co.za', totalLabel: '₦42,075 / yr',  status: 'active', orderedAt: '2026-03-01T00:00:00Z' },
-]
-
-const MOCK_CREDITS: Credit[] = []
-
 export function BillingPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const processedPaymentRef = useRef<string | null>(null)
   const activeTab = searchParams.get('tab') || 'invoices'
 
   const [billing, setBilling] = useState<BillingData>({
-    invoices: isDemoMode ? MOCK_INVOICES : [],
-    payments: isDemoMode ? MOCK_PAYMENTS : [],
-    paymentMethods: isDemoMode ? MOCK_METHODS : [],
-    orders: isDemoMode ? MOCK_ORDERS : [],
-    credits: isDemoMode ? MOCK_CREDITS : [],
+    invoices: [],
+    payments: [],
+    paymentMethods: [],
+    orders: [],
+    credits: [],
     creditBalance: 0,
   })
   const [payFeedback, setPayFeedback] = useState<{

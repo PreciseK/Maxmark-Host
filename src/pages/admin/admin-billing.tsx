@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 
-import { mockAdminBilling, mockAdminUsers } from '@/data/mockAdmin'
 import {
   fetchAdminBilling,
   fetchAllProfiles,
@@ -11,8 +10,7 @@ import {
   type AdminProfile,
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
-import { useSession } from '@/lib/session-store'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { cn, formatCurrency, formatDateLabel } from '@/lib/utils'
 import {
   Dialog,
@@ -24,7 +22,6 @@ import {
 } from '@/components/ui/dialog'
 import {
   AdminPageHeader,
-  DemoNotice,
   EmptyRow,
   StatusBadge,
   TableCard,
@@ -66,13 +63,12 @@ const emptyInvoiceForm: InvoiceFormState = {
 }
 
 export function AdminBilling() {
-  const { isDemo } = useSession()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const activeTab: Tab = tabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'invoices'
 
-  const [billing, setBilling] = useState<AdminBillingData>(isDemoMode ? mockAdminBilling : { invoices: [], payments: [], orders: [], credits: [] })
-  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
+  const [billing, setBilling] = useState<AdminBillingData>({ invoices: [], payments: [], orders: [], credits: [] })
+  const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [invoiceForm, setInvoiceForm] = useState<InvoiceFormState>(emptyInvoiceForm)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -137,25 +133,8 @@ export function AdminBilling() {
       return
     }
 
-    if (isDemo || !supabase) {
-      setBilling((prev) => ({
-        ...prev,
-        invoices: [
-          {
-            id: `demo-inv-${Date.now()}`,
-            userId: invoiceForm.userId,
-            description: invoiceForm.description.trim(),
-            status: 'unpaid',
-            dueDate: invoiceForm.dueDate,
-            totalNgn: total,
-            createdAt: new Date().toISOString(),
-          },
-          ...prev.invoices,
-        ],
-      }))
-      setInvoiceDialogOpen(false)
-      setInvoiceForm(emptyInvoiceForm)
-      setFeedback({ kind: 'demo' })
+    if (!supabase) {
+      setFeedback({ kind: 'error', text: 'Supabase connection required.' })
       return
     }
 
@@ -202,14 +181,7 @@ export function AdminBilling() {
     status: 'paid' | 'denied',
     recordPayment = false,
   ) {
-    if (isDemo || !supabase) {
-      setBilling((prev) => ({
-        ...prev,
-        invoices: prev.invoices.map((i) => (i.id === invoice.id ? { ...i, status } : i)),
-      }))
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
 
     setBusyId(invoice.id)
     setFeedback(null)
@@ -250,8 +222,6 @@ export function AdminBilling() {
         description="Invoices, payments, orders, and credits across every customer."
         title="Billing"
       />
-
-      {feedback?.kind === 'demo' ? <DemoNotice /> : null}
       {feedback?.kind === 'error' ? (
         <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
           {feedback.text}

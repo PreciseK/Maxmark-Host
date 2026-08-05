@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Plus, Server } from 'lucide-react'
 
-import { mockNodes } from '@/data/mockAdmin'
 import { fetchNodes, type HostingNode } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
-import { useSession } from '@/lib/session-store'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import {
   Dialog,
@@ -17,7 +15,6 @@ import {
 } from '@/components/ui/dialog'
 import {
   AdminPageHeader,
-  DemoNotice,
   StatusBadge,
   adminDialogClass,
   fieldInputClass,
@@ -48,8 +45,7 @@ const emptyForm: NodeFormState = {
 }
 
 export function AdminNodes() {
-  const { isDemo } = useSession()
-  const [nodes, setNodes] = useState<HostingNode[]>(isDemoMode ? mockNodes : [])
+  const [nodes, setNodes] = useState<HostingNode[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<NodeFormState>(emptyForm)
   const [busy, setBusy] = useState(false)
@@ -121,36 +117,8 @@ export function AdminNodes() {
       return
     }
 
-    if (isDemo || !supabase) {
-      if (form.id) {
-        setNodes((prev) =>
-          prev.map((n) =>
-            n.id === form.id
-              ? {
-                  ...n,
-                  maxSlots,
-                  status:
-                    n.status === 'full' && n.currentSlots < maxSlots ? 'active' : n.status,
-                }
-              : n,
-          ),
-        )
-      } else {
-        setNodes((prev) => [
-          ...prev,
-          {
-            id: `demo-node-${Date.now()}`,
-            cpanelUsername: form.cpanelUsername.trim(),
-            primaryDomain: form.primaryDomain.trim(),
-            currentSlots: 0,
-            maxSlots,
-            status: 'active',
-            createdAt: new Date().toISOString(),
-          },
-        ])
-      }
-      setDialogOpen(false)
-      setFeedback({ kind: 'demo' })
+    if (!supabase) {
+      setFeedback({ kind: 'error', text: 'Supabase connection required.' })
       return
     }
 
@@ -190,23 +158,7 @@ export function AdminNodes() {
     const nextStatus: 'active' | 'maintenance' =
       node.status === 'maintenance' ? 'active' : 'maintenance'
 
-    if (isDemo || !supabase) {
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === node.id
-            ? {
-                ...n,
-                status:
-                  nextStatus === 'active' && n.currentSlots >= n.maxSlots
-                    ? 'full'
-                    : nextStatus,
-              }
-            : n,
-        ),
-      )
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
 
     setBusy(true)
     setFeedback(null)
@@ -239,8 +191,6 @@ export function AdminNodes() {
         description="cPanel capacity pool. Provisioning allocates the least-loaded active node; 'full' is set automatically, 'maintenance' drains a node from new allocations."
         title="Hosting nodes"
       />
-
-      {feedback?.kind === 'demo' ? <DemoNotice /> : null}
       {feedback?.kind === 'error' ? (
         <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
           {feedback.text}

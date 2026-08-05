@@ -14,7 +14,6 @@ import {
   Users,
 } from 'lucide-react'
 
-import { mockConversations } from '@/data/mockSupport'
 import { fetchAdminUnreadTotal } from '@/lib/db/support'
 import { subscribeToAdminInbox } from '@/lib/support-realtime'
 import { cn } from '@/lib/utils'
@@ -34,20 +33,12 @@ const adminNavItems = [
 ]
 
 export function AdminShell() {
-  const { session, isDemo, adminSupportUnread, setAdminSupportUnread } = useSession()
+  const { session, adminSupportUnread, setAdminSupportUnread } = useSession()
 
   // Inbox badge: unread customer messages across non-closed conversations.
   // The inbox page keeps this in sync while open; this effect covers every
   // other admin page.
   useEffect(() => {
-    if (isDemo) {
-      setAdminSupportUnread(
-        mockConversations
-          .filter((c) => c.status !== 'closed')
-          .reduce((sum, c) => sum + c.adminUnreadCount, 0),
-      )
-      return
-    }
     if (!supabase || !session) return
     const sb = supabase
     let cancelled = false
@@ -68,7 +59,7 @@ export function AdminShell() {
       unsubscribe()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, isDemo])
+  }, [session])
 
   const adminEmail = session?.user.email ?? 'admin@maxmark.host'
   const initials = adminEmail.slice(0, 2).toUpperCase()
@@ -79,7 +70,6 @@ export function AdminShell() {
       <div className="w-full bg-[#3a2c46] text-[#e6d1f0] py-2.5 px-4 text-center text-xs font-medium border-b border-white/5 select-none">
         Admin console — actions here affect customer accounts and are recorded in the audit
         log.
-        {isDemo ? ' Running in demo mode with mock data.' : ''}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -172,7 +162,7 @@ export function AdminShell() {
               <div>
                 Role:{' '}
                 <span className="text-[#a89cf7] font-semibold uppercase tracking-wider">
-                  {isDemo ? 'Demo admin' : 'Administrator'}
+                  Administrator
                 </span>
               </div>
             </div>

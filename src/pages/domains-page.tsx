@@ -3,20 +3,7 @@ import { Link } from 'react-router-dom'
 import { MoreVertical } from 'lucide-react'
 
 import { fetchRegisteredDomains, type RegisteredDomain } from '@/lib/db/domains'
-import { isDemoMode, supabase } from '@/lib/supabase'
-
-const MOCK_DOMAINS: RegisteredDomain[] = [
-  {
-    id: 'dom-1',
-    domain: 'completeproperty.co.za',
-    tld: 'co.za',
-    status: 'suspended',
-    expiresAt: '2027-03-07',
-    autoRenew: true,
-    priceNgnYearly: 42075,
-    createdAt: new Date().toISOString(),
-  },
-]
+import { supabase } from '@/lib/supabase'
 
 function fmtDate(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -44,7 +31,7 @@ function statusBadgeClass(status: RegisteredDomain['status']): string {
 }
 
 export function DomainsPage() {
-  const [domains, setDomains] = useState<RegisteredDomain[]>(isDemoMode ? MOCK_DOMAINS : [])
+  const [domains, setDomains] = useState<RegisteredDomain[]>([])
   const [loadError, setLoadError] = useState(false)
   const [activeTab, setActiveTab] = useState<'registration' | 'manage'>('registration')
 

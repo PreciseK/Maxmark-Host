@@ -67,9 +67,7 @@ export function MarketplacePage({
   // Marketplace tier from active hosting plans. Demo default is 3 (the mock
   // data ships a VIP plan) so the whole flow is walkable without credentials.
   // Display/gating only — the Edge Functions re-derive the tier server-side.
-  const [userTier, setUserTier] = useState<UserMarketplaceTier>(
-    isDemoMode ? 3 : 0,
-  )
+  const [userTier, setUserTier] = useState<UserMarketplaceTier>(0)
 
   useEffect(() => {
     if (!supabase) return

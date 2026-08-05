@@ -3,22 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpDown, MoreVertical, Plus } from 'lucide-react'
 
 import { fetchPlans, type HostingPlan } from '@/lib/db/plans'
-import { isDemoMode, supabase } from '@/lib/supabase'
-
-const MOCK_PLANS: HostingPlan[] = [
-  {
-    id: 'plan-1',
-    name: 'WordPress VIP Plan',
-    type: 'VIP',
-    region: 'UK South',
-    sitesLimit: 1,
-    appEnvironment: 'WordPress',
-    priceNgnYearly: 313434,
-    renewalDate: '2027-03-14',
-    status: 'active',
-    createdAt: new Date().toISOString(),
-  },
-]
+import { supabase } from '@/lib/supabase'
 
 function regionFlag(region: string): { emoji: string; label: string } {
   const r = region.toLowerCase()
@@ -44,7 +29,7 @@ function fmtPrice(ngnYearly: number): string {
 }
 
 export function PlansPage() {
-  const [plans, setPlans] = useState<HostingPlan[]>(isDemoMode ? MOCK_PLANS : [])
+  const [plans, setPlans] = useState<HostingPlan[]>([])
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {

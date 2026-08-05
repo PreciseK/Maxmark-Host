@@ -17,33 +17,8 @@ import {
 } from 'lucide-react'
 
 import { fetchBackupLogs, type BackupLog } from '@/lib/db/backup-logs'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import type { ManagedSite } from '@/types/provisioning'
-
-const MOCK_BACKUP_LOGS: BackupLog[] = [
-  { id: 'b-01', siteId: '', status: 'completed', createdAt: '2026-03-29T04:00:00.000Z' },
-  { id: 'b-02', siteId: '', status: 'completed', createdAt: '2026-03-27T05:03:00.000Z' },
-  { id: 'b-03', siteId: '', status: 'completed', createdAt: '2026-03-26T04:50:00.000Z' },
-  { id: 'b-04', siteId: '', status: 'completed', createdAt: '2026-03-24T04:58:00.000Z' },
-  { id: 'b-05', siteId: '', status: 'completed', createdAt: '2026-03-22T04:50:00.000Z' },
-  { id: 'b-06', siteId: '', status: 'completed', createdAt: '2026-03-21T04:50:00.000Z' },
-  { id: 'b-07', siteId: '', status: 'completed', createdAt: '2026-03-20T04:58:00.000Z' },
-  { id: 'b-08', siteId: '', status: 'completed', createdAt: '2026-03-19T04:50:00.000Z' },
-  { id: 'b-09', siteId: '', status: 'completed', createdAt: '2026-03-18T04:51:00.000Z' },
-  { id: 'b-10', siteId: '', status: 'completed', createdAt: '2026-03-16T04:50:00.000Z' },
-  { id: 'b-11', siteId: '', status: 'completed', createdAt: '2026-03-14T04:50:00.000Z' },
-  { id: 'b-12', siteId: '', status: 'completed', createdAt: '2026-03-13T04:58:00.000Z' },
-  { id: 'b-13', siteId: '', status: 'completed', createdAt: '2026-03-11T05:23:00.000Z' },
-  { id: 'b-14', siteId: '', status: 'completed', createdAt: '2026-03-10T04:50:00.000Z' },
-  { id: 'b-15', siteId: '', status: 'completed', createdAt: '2026-03-08T04:50:00.000Z' },
-  { id: 'b-16', siteId: '', status: 'completed', createdAt: '2026-03-07T04:51:00.000Z' },
-  { id: 'b-17', siteId: '', status: 'completed', createdAt: '2026-03-06T05:04:00.000Z' },
-  { id: 'b-18', siteId: '', status: 'completed', createdAt: '2026-03-05T05:07:00.000Z' },
-  { id: 'b-19', siteId: '', status: 'completed', createdAt: '2026-03-04T05:37:00.000Z' },
-  { id: 'b-20', siteId: '', status: 'completed', createdAt: '2026-03-03T05:13:00.000Z' },
-  { id: 'b-21', siteId: '', status: 'completed', createdAt: '2026-03-02T04:59:00.000Z' },
-  { id: 'b-22', siteId: '', status: 'completed', createdAt: '2026-02-28T04:51:00.000Z' },
-]
 
 function fmtBackupDate(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -79,7 +54,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
   
   const activeTab = searchParams.get('tab') || 'credentials'
   const [copiedText, setCopiedText] = useState<string | null>(null)
-  const [backupLogs, setBackupLogs] = useState<BackupLog[]>(isDemoMode ? MOCK_BACKUP_LOGS : [])
+  const [backupLogs, setBackupLogs] = useState<BackupLog[]>([])
   const [backupLoadError, setBackupLoadError] = useState(false)
 
   useEffect(() => {

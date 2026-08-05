@@ -4,10 +4,9 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useSession } from '@/lib/session-store'
 
 export function CustomerRoute({ children }: { children: ReactNode }) {
-  const { session, isDemo, roleResolved } = useSession()
+  const { session, roleResolved } = useSession()
   const location = useLocation()
 
-  if (isDemo) return <>{children}</>
   if (!roleResolved) {
     return (
       <div

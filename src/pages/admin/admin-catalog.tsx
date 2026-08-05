@@ -2,12 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import {
-  mockAdminDnsZones,
-  mockAdminDomains,
-  mockAdminPlans,
-  mockAdminUsers,
-} from '@/data/mockAdmin'
-import {
   fetchAdminDnsZones,
   fetchAdminDomains,
   fetchAdminPlans,
@@ -17,7 +11,7 @@ import {
   type AdminPlanRow,
   type AdminProfile,
 } from '@/lib/db/admin'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDateLabel } from '@/lib/utils'
 import {
   AdminPageHeader,
@@ -33,10 +27,10 @@ import {
 } from '@/components/admin/admin-ui'
 
 export function AdminCatalog() {
-  const [plans, setPlans] = useState<AdminPlanRow[]>(isDemoMode ? mockAdminPlans : [])
-  const [domains, setDomains] = useState<AdminDomainRow[]>(isDemoMode ? mockAdminDomains : [])
-  const [zones, setZones] = useState<AdminDnsZoneRow[]>(isDemoMode ? mockAdminDnsZones : [])
-  const [profiles, setProfiles] = useState<AdminProfile[]>(isDemoMode ? mockAdminUsers : [])
+  const [plans, setPlans] = useState<AdminPlanRow[]>([])
+  const [domains, setDomains] = useState<AdminDomainRow[]>([])
+  const [zones, setZones] = useState<AdminDnsZoneRow[]>([])
+  const [profiles, setProfiles] = useState<AdminProfile[]>([])
 
   useEffect(() => {
     if (!supabase) return

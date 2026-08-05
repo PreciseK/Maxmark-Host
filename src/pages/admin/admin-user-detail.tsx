@@ -3,13 +3,6 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { ChevronLeft, Coins } from 'lucide-react'
 
 import {
-  mockAdminBilling,
-  mockAdminPlans,
-  mockAdminPurchases,
-  mockAdminSites,
-  mockAdminUsers,
-} from '@/data/mockAdmin'
-import {
   fetchAdminUserDetail,
   type AdminCredit,
   type AdminInvoice,
@@ -19,7 +12,6 @@ import {
   type AdminSiteRow,
 } from '@/lib/db/admin'
 import { adminAction } from '@/lib/functions'
-import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDateLabel } from '@/lib/utils'
 import {
@@ -32,7 +24,6 @@ import {
 } from '@/components/ui/dialog'
 import {
   AdminPageHeader,
-  DemoNotice,
   EmptyRow,
   StatusBadge,
   TableCard,
@@ -66,27 +57,14 @@ const invoiceTone: Record<AdminInvoice['status'], BadgeTone> = {
 export function AdminUserDetail() {
   const { userId = '' } = useParams()
   const location = useLocation()
-  const { isDemo } = useSession()
   const stateEmail = (location.state as { email?: string } | null)?.email
 
-  const mockUser = mockAdminUsers.find((u) => u.userId === userId)
-
-  const [profile, setProfile] = useState<AdminProfile | null>(isDemo ? mockUser ?? null : null)
-  const [sites, setSites] = useState<AdminSiteRow[]>(
-    isDemo ? mockAdminSites.filter((s) => s.userId === userId) : [],
-  )
-  const [plans, setPlans] = useState<AdminPlanRow[]>(
-    isDemo ? mockAdminPlans.filter((p) => p.userId === userId) : [],
-  )
-  const [invoices, setInvoices] = useState<AdminInvoice[]>(
-    isDemo ? mockAdminBilling.invoices.filter((i) => i.userId === userId) : [],
-  )
-  const [credits, setCredits] = useState<AdminCredit[]>(
-    isDemo ? mockAdminBilling.credits.filter((c) => c.userId === userId) : [],
-  )
-  const [purchases, setPurchases] = useState<AdminPurchaseRow[]>(
-    isDemo ? mockAdminPurchases.filter((p) => p.userId === userId) : [],
-  )
+  const [profile, setProfile] = useState<AdminProfile | null>(null)
+  const [sites, setSites] = useState<AdminSiteRow[]>([])
+  const [plans, setPlans] = useState<AdminPlanRow[]>([])
+  const [invoices, setInvoices] = useState<AdminInvoice[]>([])
+  const [credits, setCredits] = useState<AdminCredit[]>([])
+  const [purchases, setPurchases] = useState<AdminPurchaseRow[]>([])
 
   const [creditDialogOpen, setCreditDialogOpen] = useState(false)
   const [creditAmount, setCreditAmount] = useState('')
@@ -124,19 +102,13 @@ export function AdminUserDetail() {
     [credits],
   )
 
-  const email = stateEmail || (isDemo ? mockUser?.email : '') || ''
+  const email = stateEmail || ''
   const title = profile?.displayName || email || 'Customer'
 
   async function handleSiteStatusToggle(site: AdminSiteRow) {
     const nextStatus = site.status === 'suspended' ? 'active' : 'suspended'
 
-    if (isDemo || !supabase) {
-      setSites((prev) =>
-        prev.map((s) => (s.id === site.id ? { ...s, status: nextStatus } : s)),
-      )
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
 
     setBusy(true)
     setFeedback(null)
@@ -173,21 +145,7 @@ export function AdminUserDetail() {
       setCreditDescription('')
     }
 
-    if (isDemo || !supabase) {
-      setCredits((prev) => [
-        {
-          id: `demo-credit-${Date.now()}`,
-          userId,
-          amountNgn: amount,
-          description: creditDescription.trim(),
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ])
-      closeAndReset()
-      setFeedback({ kind: 'demo' })
-      return
-    }
+    if (!supabase) return
 
     setBusy(true)
     setFeedback(null)
@@ -241,8 +199,6 @@ export function AdminUserDetail() {
         description={email || 'Customer account detail'}
         title={title}
       />
-
-      {feedback?.kind === 'demo' ? <DemoNotice /> : null}
       {feedback?.kind === 'error' ? (
         <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
           {feedback.text}

@@ -8,8 +8,6 @@
 import { fetchSites } from '@/lib/db/sites'
 import { provisionSiteViaFunction } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
-import { createProvisioningSteps } from '@/data/mockSites'
-import { simulateProvisionSite } from '@/services/mockProvisioningClient'
 import type { ManagedSite, ProvisioningStep } from '@/types/provisioning'
 
 export interface ProvisionSiteOptions {
@@ -17,12 +15,22 @@ export interface ProvisionSiteOptions {
   onProgress?: (steps: ProvisioningStep[]) => void
 }
 
+function defaultSteps(): ProvisioningStep[] {
+  return [
+    { id: 'select-node', label: 'Validating Domain Input', description: 'Checking domain format and availability', state: 'pending' },
+    { id: 'create-domain', label: 'Allocating Node & Slot', description: 'Selecting optimal server node', state: 'pending' },
+    { id: 'create-database', label: 'Creating cPanel Account & Database', description: 'Configuring WHM account and MySQL credentials', state: 'pending' },
+    { id: 'install-wordpress', label: 'Installing WordPress Core', description: 'Deploying latest WordPress release', state: 'pending' },
+    { id: 'complete', label: 'Finalizing Provisioning', description: 'Verifying DNS and SSL certificate status', state: 'pending' },
+  ]
+}
+
 export async function provisionSite(
   domainInput: string,
   options: ProvisionSiteOptions,
 ): Promise<ManagedSite> {
   if (!supabase) {
-    return simulateProvisionSite(domainInput, options)
+    throw new Error('Supabase client is not configured.')
   }
 
   const sb = supabase
@@ -31,12 +39,10 @@ export async function provisionSite(
   } = await sb.auth.getSession()
 
   if (!session) {
-    return simulateProvisionSite(domainInput, options)
+    throw new Error('You must be logged in to provision a site.')
   }
 
-  // Live provisioning happens server-side in one call, so progress is
-  // coarse: show the pipeline as started, then replay the server's step log.
-  const steps = createProvisioningSteps()
+  const steps = defaultSteps()
   options.onProgress?.(
     steps.map((step, index) =>
       index === 0 ? { ...step, state: 'in_progress' } : step,

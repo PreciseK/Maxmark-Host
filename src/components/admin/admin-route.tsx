@@ -11,9 +11,7 @@ import { useSession } from '@/lib/session-store'
  * 'admin' role in user_roles.
  */
 export function AdminRoute({ children }: { children: ReactNode }) {
-  const { session, isAdmin, isDemo, roleResolved } = useSession()
-
-  if (isDemo) return <>{children}</>
+  const { session, isAdmin, roleResolved } = useSession()
 
   if (!roleResolved) {
     return <div className="min-h-screen bg-[#121214]" />
