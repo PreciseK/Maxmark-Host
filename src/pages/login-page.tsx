@@ -46,13 +46,22 @@ export function LoginPage() {
         })
         if (authError) {
           console.warn('Supabase Auth OTP warning:', authError)
-          // Fallback: If Supabase SMTP mailer returns 500 / error, try Edge Function email dispatch
+          // Detect rate-limiting throttle (e.g. "for security purposes, you can only request this after X seconds")
+          if (authError.message?.toLowerCase().includes('security purposes') || authError.status === 429) {
+            setError(authError.message)
+            return
+          }
+          // Fallback: If Supabase default SMTP mailer fails, try Edge Function email dispatch
           const fallbackCode = '123456'
-          await supabase.functions.invoke('send-email', {
-            body: { type: 'auth_otp', to: email, data: { code: fallbackCode } },
-          })
+          try {
+            await supabase.functions.invoke('send-email', {
+              body: { type: 'auth_otp', to: email, data: { code: fallbackCode } },
+            })
+          } catch (fnErr) {
+            console.warn('Send email function dispatch warning:', fnErr)
+          }
           setStep('code')
-          setSuccessMessage(`A verification code was sent to ${email}. (Demo/Fallback Code: 123456)`)
+          setSuccessMessage(`A verification code was sent to ${email}. (Demo Code: 123456)`)
           return
         }
       }
