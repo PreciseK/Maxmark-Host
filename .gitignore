@@ -29,6 +29,8 @@ dist-ssr
 # Local tooling scratch
 .playwright-mcp/
 .worktrees/
+.claude/worktrees/
+.superpowers/
 .gstack/
 
 # Supabase CLI scratch state (contains pooler URL / project ref)
