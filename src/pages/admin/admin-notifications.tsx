@@ -196,7 +196,7 @@ export function AdminNotifications() {
         <div className={adminCardClass}>
           <div className="px-5 py-4 border-b border-[#232328] bg-[#161619] flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Resend Transactional Email Templates</h3>
-            <span className="text-xs text-muted-foreground">From: Maxmark Host &lt;noreply@maxmark.host&gt;</span>
+            <span className="text-xs text-muted-foreground">From: Maxmark Host &lt;noreply@maxmark.com.ng&gt;</span>
           </div>
 
           <div className="overflow-x-auto">

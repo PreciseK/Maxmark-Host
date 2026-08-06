@@ -411,7 +411,7 @@ export function getInitialDnsRecords(domainName: string): AdminDnsDbRecord[] {
       domainName,
       type: 'TXT',
       name: '@',
-      content: 'v=spf1 include:spf.maxmark.host ~all',
+      content: 'v=spf1 include:spf.maxmark.com.ng ~all',
       ttl: 3600,
       proxied: false,
       createdAt: new Date().toISOString(),

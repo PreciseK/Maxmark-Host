@@ -99,7 +99,7 @@ serve(async (req) => {
 
   try {
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    const fromEmail = Deno.env.get('FROM_EMAIL') || 'Maxmark Host <noreply@maxmark.host>'
+    const fromEmail = Deno.env.get('FROM_EMAIL') || 'Maxmark Host <noreply@maxmark.com.ng>'
 
     if (!resendApiKey) {
       throw new Error('RESEND_API_KEY environment secret is not configured.')

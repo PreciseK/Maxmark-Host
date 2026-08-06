@@ -24,7 +24,7 @@ function pluginBootstrap(plugin: MarketplacePlugin, purchase: PluginPurchase) {
   return `<?php
 /**
  * Plugin Name: ${plugin.name}
- * Plugin URI: https://maxmark.host/marketplace/${plugin.slug}
+ * Plugin URI: https://maxmark.com.ng/marketplace/${plugin.slug}
  * Description: ${plugin.tagline}
  * Version: ${plugin.version}
  * Requires at least: ${plugin.requiresWordPress.replace('+', '')}
