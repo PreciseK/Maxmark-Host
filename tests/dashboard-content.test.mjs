@@ -299,3 +299,20 @@ test('the client bridge exposes the content actions', async () => {
     assert.match(bridge, new RegExp(`'${action}'`), `${action} missing from AdminAction union`)
   }
 })
+
+test('article rendering cannot execute stored HTML', async () => {
+  const pkg = JSON.parse(await read('package.json'))
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+
+  // rehype-raw would re-enable raw HTML inside markdown, turning an
+  // admin-authored article into a stored-XSS vector for every customer.
+  assert.ok(!('rehype-raw' in deps), 'rehype-raw must never be a dependency')
+  assert.ok('react-markdown' in deps, 'react-markdown should be installed')
+
+  const body = await read('src/components/kb/article-body.tsx')
+  // Ban actual wiring (import/identifier usage), not a prose mention of the
+  // plugin name in a comment explaining why it's excluded.
+  assert.doesNotMatch(body, /from\s+['"]rehype-raw['"]|\brehypePlugins\b/)
+  assert.match(body, /allowedElements/)
+  assert.match(body, /unwrapDisallowed/)
+})
