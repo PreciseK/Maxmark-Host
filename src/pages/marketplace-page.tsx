@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { fetchPlans } from '@/lib/db/plans'
 import { paymentReferenceFromSearch } from '@/lib/paystack'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import {
   marketplaceTierForPlans,
   tierLabel,
@@ -64,8 +64,7 @@ export function MarketplacePage({
   } | null>(null)
   const deferredSearch = useDeferredValue(searchValue)
 
-  // Marketplace tier from active hosting plans. Demo default is 3 (the mock
-  // data ships a VIP plan) so the whole flow is walkable without credentials.
+  // Marketplace tier from active hosting plans; starts at 0 until they load.
   // Display/gating only — the Edge Functions re-derive the tier server-side.
   const [userTier, setUserTier] = useState<UserMarketplaceTier>(0)
 
@@ -154,7 +153,7 @@ export function MarketplacePage({
   }
 
   async function handlePluginAction(plugin: MarketplacePlugin) {
-    if (!isDemoMode && !plugin.hasDownloadAsset) {
+    if (!plugin.hasDownloadAsset) {
       setFeedback({
         tone: 'warning',
         text: 'This item is temporarily unavailable while its licensed asset is prepared.',
@@ -267,7 +266,7 @@ export function MarketplacePage({
               ) : (
                 <Button
                   className="border-white/20 bg-white/10 text-white hover:bg-white/16"
-                  disabled={!featuredPlugin || (!isDemoMode && !featuredPlugin.hasDownloadAsset)}
+                  disabled={!featuredPlugin || !featuredPlugin.hasDownloadAsset}
                   onClick={() => featuredPlugin && handlePluginAction(featuredPlugin)}
                   variant="outline"
                 >
@@ -549,11 +548,11 @@ export function MarketplacePage({
                     </Button>
                   ) : (
                     <Button
-                      disabled={isBusy || (!isDemoMode && !plugin.hasDownloadAsset)}
+                      disabled={isBusy || !plugin.hasDownloadAsset}
                       onClick={() => handlePluginAction(plugin)}
                     >
                       <ArrowDownToLine className="h-4 w-4" />
-                      {!isDemoMode && !plugin.hasDownloadAsset
+                      {!plugin.hasDownloadAsset
                         ? 'Asset temporarily unavailable'
                         : isBusy
                         ? purchase

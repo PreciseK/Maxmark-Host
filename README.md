@@ -4,7 +4,7 @@ Managed WordPress hosting control panel built with React, Supabase Edge Function
 
 ## Local development
 
-Copy `.env.example` to `.env.local`. For a sample-data-only session set `VITE_DEMO_MODE=true`; otherwise use real Supabase values. Demo mode is explicit and must never be enabled in a production deployment.
+Copy `.env.example` to `.env.local` and fill in real Supabase values. There is no sample-data mode: if `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing or still a placeholder, the app renders a blocking configuration error rather than substituting mock data.
 
 ```sh
 npm ci

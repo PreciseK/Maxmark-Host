@@ -85,15 +85,6 @@ export function EmptyRow({ colSpan, message }: { colSpan: number; message: strin
   )
 }
 
-export function DemoNotice() {
-  return (
-    <p className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2">
-      Demo mode — this change is applied locally only. Connect Supabase to persist admin
-      actions.
-    </p>
-  )
-}
-
 // Class recipes shared by admin tables, forms, and dialogs.
 export const tableClass = 'w-full text-left border-collapse'
 export const theadRowClass =

@@ -4,13 +4,16 @@ import test from 'node:test'
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('live configuration is fail-closed and demo mode is explicit', async () => {
+test('live configuration is fail-closed and no sample-data path exists', async () => {
   const source = await read('src/lib/supabase.ts')
   const customerRoute = await read('src/components/customer-route.tsx')
   const example = await read('.env.example')
-  assert.match(source, /VITE_DEMO_MODE === 'true'/)
+  // Placeholder or missing credentials must null the client, never fall back
+  // to sample data. Demo mode was removed; nothing may reintroduce it.
   assert.match(source, /configurationError/)
-  assert.match(example, /VITE_DEMO_MODE=false/)
+  assert.match(source, /looksLikePlaceholder/)
+  assert.doesNotMatch(source, /isDemoMode|VITE_DEMO_MODE/)
+  assert.doesNotMatch(example, /VITE_DEMO_MODE/)
   assert.match(example, /MOCK_WHM_REQUESTS=false/)
   assert.match(customerRoute, /if \(!session\)/)
   assert.match(customerRoute, /<Navigate replace[\s\S]*to="\/login"/)

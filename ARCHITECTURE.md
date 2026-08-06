@@ -1,7 +1,7 @@
 # Maxmark Host — Architecture
 
-> **Production hardening update (July 31, 2026):** demo data is available only
-> with `VITE_DEMO_MODE=true`; invalid live configuration is blocked. Payments
+> **Production hardening update (July 31, 2026):** demo/sample data has been
+> removed entirely; invalid live configuration is blocked. Payments
 > are initialized server-side into single-use `payment_intents` and settled by
 > an atomic SQL function after exact Paystack amount/email/metadata checks.
 > Provisioning reserves plan quota and node capacity atomically, then requires
@@ -158,13 +158,17 @@ Pages that own self-contained data (billing, plans, dns-zones, domains, backup l
 
 ### Supabase client
 
-`src/lib/supabase.ts` exports `supabase: SupabaseClient | null`. It is `null` only in explicit demo mode or when live configuration is invalid. Invalid live configuration renders a blocking error rather than sample account data.
+`src/lib/supabase.ts` exports `supabase: SupabaseClient | null`. It is `null` only when configuration is missing or still a placeholder, which renders a blocking error rather than sample account data.
 
 ```ts
-export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
+export const configurationError =
+  looksLikePlaceholder(supabaseUrl) || looksLikePlaceholder(supabaseAnonKey)
+    ? 'Maxmark is not configured. Set real VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY values.'
+    : null
+
 export const supabase =
-  !isDemoMode && !configurationError
-    ? createClient(supabaseUrl, supabaseAnonKey)
+  !configurationError && supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey, { /* auth options */ })
     : null
 ```
 
@@ -189,12 +193,12 @@ Each file in `src/lib/db/` is a thin module that:
 All money columns are NGN (`total_ngn`, `amount_ngn`, `price_ngn`, …) —
 matching the Paystack integration, which only charges NGN.
 
-### Explicit demo, fail-closed live pattern
+### Fail-closed live pattern
 
-Pages initialise typed mock constants only when `VITE_DEMO_MODE=true`. Live sessions replace state even with a valid empty result. Any fetch error clears account state and surfaces an error; sample customers or entitlements are never substituted.
+Pages start from empty state and fill it from Supabase. Live sessions replace state even with a valid empty result. Any fetch error clears account state and surfaces an error; sample customers or entitlements are never substituted.
 
 ```ts
-const [plans, setPlans] = useState<HostingPlan[]>(isDemoMode ? MOCK_PLANS : [])
+const [plans, setPlans] = useState<HostingPlan[]>([])
 
 useEffect(() => {
   if (!supabase) return
@@ -399,7 +403,6 @@ six-digit code for a local walkthrough.
 |---|---|---|
 | `VITE_SUPABASE_URL` | Frontend | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Frontend | Supabase anon key (RLS enforced) |
-| `VITE_DEMO_MODE` | Frontend | Explicit sample-data mode; always false in production |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Injected automatically by Supabase |
 | `PAYSTACK_SECRET_KEY` | Edge Functions | Verifies transactions server-side |
 | `APP_URL` | Edge Functions | Exact HTTPS Paystack callback origin |
@@ -473,7 +476,7 @@ The same posture extends to object storage: the browser never gets direct R2 cre
 
 ### Session & guard
 
-`SessionProvider` (`src/lib/session-context.tsx`, hook in `src/lib/session-store.ts`) resolves `{ session, isAdmin, isDemo, roleResolved }` plus the support unread badges. `AdminRoute` gates the tree: **demo mode (no env vars) renders freely from mocks** — consistent with mock-first rendering, so a real deployment must set env vars; with Supabase configured, no session → `/login`, non-admin → `/home`.
+`SessionProvider` (`src/lib/session-context.tsx`, hook in `src/lib/session-store.ts`) resolves `{ session, isAdmin, roleResolved }` plus the support unread badges. `AdminRoute` gates the tree with no bypass: it holds a blank screen until `roleResolved` settles (so it never redirects mid-lookup), then no session → `/login`, non-admin → `/home`.
 
 ### Node lifecycle note
 
@@ -513,7 +516,7 @@ Both tables are added to the `supabase_realtime` publication (guarded in `supaba
 
 **No state library.** The app is small enough that `App.tsx` as a single state container (with selective prop passing) is simpler than Redux or Zustand. Cross-cutting state (`sites`, `plugins`, `pluginPurchases`) lives at the root; page-local data (`billing`, `plans`, etc.) lives inside each page's own `useState`.
 
-**Fail-closed rendering.** Typed mocks render only with `VITE_DEMO_MODE=true`. Live fetch failures never retain or substitute sample customer or commercial records.
+**Fail-closed rendering.** There is no sample-data path. Live fetch failures never retain or substitute sample customer or commercial records.
 
 **Repository layer owns snake\_case → camelCase.** DB columns use snake\_case (Postgres convention); TypeScript types use camelCase (JS convention). The mapper in each `src/lib/db/*.ts` file handles the conversion explicitly, keeping components unaware of DB naming.
 

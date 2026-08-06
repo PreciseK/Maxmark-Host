@@ -23,7 +23,7 @@ const statusTone: Record<ConversationStatus, BadgeTone> = {
  * and new-case form.
  */
 export function ChatWidget() {
-  const { session, isDemo, supportUnread } = useSession()
+  const { session, supportUnread } = useSession()
   const chat = useSupportChat()
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'list' | 'thread' | 'new'>('list')
@@ -31,8 +31,8 @@ export function ChatWidget() {
   const [firstMessage, setFirstMessage] = useState('')
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
-  // Without a session (and outside demo mode) there is nobody to chat as.
-  if (!isDemo && !session) return null
+  // Without a session there is nobody to chat as.
+  if (!session) return null
 
   const activeConversation = chat.conversations.find((c) => c.id === chat.activeId) ?? null
 
@@ -48,7 +48,7 @@ export function ChatWidget() {
 
   async function handleOpenAttachment(message: SupportMessage) {
     if (!message.attachment) return
-    if (isDemo || !supabase || !session) return // demo attachments have no real URL to open
+    if (!supabase || !session) return
     setAttachmentError(null)
     try {
       const url = await getChatAttachmentUrl(supabase, message.id)

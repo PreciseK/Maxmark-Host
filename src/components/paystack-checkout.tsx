@@ -21,7 +21,7 @@ export function PaystackCheckout({
 
   async function handleClick() {
     if (!supabase) {
-      onError?.('Payments are unavailable in demo mode.')
+      onError?.('Payments are unavailable until Maxmark is configured.')
       return
     }
 

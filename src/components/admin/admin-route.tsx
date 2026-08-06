@@ -6,9 +6,8 @@ import { useSession } from '@/lib/session-store'
 /**
  * Gate for the /admin tree.
  *
- * Explicit demo mode renders sample data. In live mode a session is required
- * and the user must hold the
- * 'admin' role in user_roles.
+ * A session is required and the user must hold the 'admin' role in
+ * user_roles. There is no demo or unconfigured bypass.
  */
 export function AdminRoute({ children }: { children: ReactNode }) {
   const { session, isAdmin, roleResolved } = useSession()
