@@ -316,3 +316,14 @@ test('article rendering cannot execute stored HTML', async () => {
   assert.match(body, /allowedElements/)
   assert.match(body, /unwrapDisallowed/)
 })
+
+test('no hardcoded dashboard content constants remain', async () => {
+  const home = await read('src/pages/dashboard-home.tsx')
+  assert.doesNotMatch(home, /KNOWLEDGE_ARTICLES/)
+  // The old widgets hardcoded six service names and a fixed maintenance date.
+  assert.doesNotMatch(home, /Cloud Container Services/)
+  assert.doesNotMatch(home, /Apr 1, 2026/)
+  assert.match(home, /fetchPublishedArticles/)
+  assert.match(home, /fetchServiceComponents/)
+  assert.match(home, /fetchActiveMaintenanceWindows/)
+})

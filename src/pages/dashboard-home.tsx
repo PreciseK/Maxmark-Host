@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 
 import { fetchBillingData, type BillingData } from '@/lib/db/billing'
+import { fetchPublishedArticles, type KbArticle } from '@/lib/db/kb'
 import {
   MAINTENANCE_STATE_LABELS,
   deriveWindowState,
@@ -63,22 +64,25 @@ export function StatusWidget() {
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false)
-      return
-    }
     let cancelled = false
-    fetchServiceComponents(supabase)
-      .then((rows) => {
+
+    async function load() {
+      if (!supabase) {
+        setLoading(false)
+        return
+      }
+      try {
+        const rows = await fetchServiceComponents(supabase)
         if (!cancelled) setComponents(rows)
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
         console.warn('Service status fetch failed:', error)
         if (!cancelled) setLoadError(true)
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    void load()
 
     return () => {
       cancelled = true
@@ -178,22 +182,25 @@ export function ScheduledMaintenanceWidget() {
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false)
-      return
-    }
     let cancelled = false
-    fetchActiveMaintenanceWindows(supabase)
-      .then((rows) => {
+
+    async function load() {
+      if (!supabase) {
+        setLoading(false)
+        return
+      }
+      try {
+        const rows = await fetchActiveMaintenanceWindows(supabase)
         if (!cancelled) setWindows(rows)
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
         console.warn('Maintenance window fetch failed:', error)
         if (!cancelled) setLoadError(true)
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    void load()
 
     return () => {
       cancelled = true
@@ -244,12 +251,8 @@ export function ScheduledMaintenanceWidget() {
   )
 }
 
-const KNOWLEDGE_ARTICLES = [
-  { id: '1', title: 'How to map a custom domain to your Maxmark site', category: 'Domains & DNS' },
-  { id: '2', title: 'Configuring Automatic Let\'s Encrypt SSL Certificates', category: 'Security & SSL' },
-  { id: '3', title: 'Optimizing WordPress caching with Cloudflare Performance Shield', category: 'Performance' },
-  { id: '4', title: 'Managing MySQL database credentials in cPanel', category: 'Database' },
-]
+/** How many articles the home widget lists before sending people to /kb. */
+const HOME_ARTICLE_LIMIT = 5
 
 export function DashboardHome() {
   const [sites, setSites] = useState<ManagedSite[]>([])
@@ -257,6 +260,7 @@ export function DashboardHome() {
   const [activeCasesCount, setActiveCasesCount] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+  const [articles, setArticles] = useState<KbArticle[]>([])
 
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [hasSearched, setHasSearched] = useState<boolean>(false)
@@ -295,16 +299,37 @@ export function DashboardHome() {
     void loadDashboardData()
   }, [])
 
+  useEffect(() => {
+    if (!supabase) return
+    let cancelled = false
+    fetchPublishedArticles(supabase)
+      .then((rows) => {
+        if (!cancelled) setArticles(rows)
+      })
+      .catch((error: unknown) => {
+        console.warn('Knowledge base fetch failed:', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const primarySite = sites[0] ?? null
   const unpaidInvoices = billing?.invoices.filter((i) => i.status === 'unpaid') ?? []
   const totalUnpaidNgn = unpaidInvoices.reduce((acc, i) => acc + i.totalNgn, 0)
   const fmtNgn = (n: number) =>
     new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n)
 
-  const filteredArticles = KNOWLEDGE_ARTICLES.filter((article) =>
-    article.title.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-    article.category.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  )
+  const searchTerm = searchQuery.trim().toLowerCase()
+  // With no search, show a curated head of the list; searching covers them all.
+  const filteredArticles = searchTerm
+    ? articles.filter(
+        (article) =>
+          article.title.toLowerCase().includes(searchTerm) ||
+          article.category.toLowerCase().includes(searchTerm),
+      )
+    : articles.slice(0, HOME_ARTICLE_LIMIT)
 
   return (
     <div className="space-y-6">
@@ -488,7 +513,7 @@ export function DashboardHome() {
                 <div className="divide-y divide-[#232328] rounded-md border border-[#232328] bg-[#121214] p-3">
                   {filteredArticles.map((article) => (
                     <div className="py-2.5 first:pt-0 last:pb-0" key={article.id}>
-                      <Link to="/support" className="text-xs font-semibold text-white hover:text-violet-300">
+                      <Link to={`/kb/${article.slug}`} className="text-xs font-semibold text-white hover:text-violet-300">
                         {article.title}
                       </Link>
                       <span className="ml-2 inline-block rounded bg-white/5 px-2 py-0.5 text-[10px] text-white/50">

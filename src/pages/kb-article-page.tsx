@@ -13,27 +13,28 @@ export function KbArticlePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!supabase || !slug) {
-      setLoading(false)
-      return
-    }
-    const sb = supabase
     let cancelled = false
 
-    setLoading(true)
-    setError(null)
-    fetchArticleBySlug(sb, slug)
-      .then((result) => {
+    async function load() {
+      if (!supabase || !slug) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const result = await fetchArticleBySlug(supabase, slug)
         if (!cancelled) setArticle(result)
-      })
-      .catch((err: unknown) => {
+      } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'The article could not be loaded.')
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    void load()
 
     return () => {
       cancelled = true
