@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 
 import { AdminPageHeader } from '@/components/admin/admin-ui'
+import { MaintenanceTab } from '@/components/admin/dashboard-content/maintenance-tab'
 import { ServiceComponentsTab } from '@/components/admin/dashboard-content/service-components-tab'
 
 type ContentTab = 'status' | 'maintenance' | 'kb'
@@ -56,7 +57,7 @@ export function AdminDashboardContent() {
       </div>
 
       {activeTab === 'status' ? <ServiceComponentsTab /> : null}
-      {activeTab === 'maintenance' ? <p className="text-xs text-muted-foreground">Maintenance</p> : null}
+      {activeTab === 'maintenance' ? <MaintenanceTab /> : null}
       {activeTab === 'kb' ? <p className="text-xs text-muted-foreground">Knowledge base</p> : null}
     </div>
   )
