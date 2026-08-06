@@ -3,14 +3,15 @@ import type { Session } from '@supabase/supabase-js'
 
 import { fetchUserUnreadTotal } from '@/lib/db/support'
 import { SessionContext } from '@/lib/session-store'
-import { isDemoMode, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const isDemo = isDemoMode
   const [session, setSession] = useState<Session | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [roleResolved, setRoleResolved] = useState(isDemo)
+  const [accountId, setAccountId] = useState<string | null>(null)
+  const [supportPin, setSupportPin] = useState<string | null>(null)
+  const [roleResolved, setRoleResolved] = useState(false)
   const [supportUnread, setSupportUnread] = useState(0)
   const [adminSupportUnread, setAdminSupportUnread] = useState(0)
 
@@ -25,6 +26,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setIsAdmin(false)
           setAvatarUrl(null)
+          setAccountId(null)
+          setSupportPin(null)
           setRoleResolved(true)
         }
         return
@@ -37,18 +40,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             .eq('user_id', next.user.id)
             .eq('role', 'admin')
             .limit(1),
-          sb.from('user_profiles').select('avatar_url').eq('user_id', next.user.id).maybeSingle(),
+          sb
+            .from('user_profiles')
+            .select('avatar_url, account_id, support_pin')
+            .eq('user_id', next.user.id)
+            .maybeSingle(),
         ])
         if (roleRes.error) throw roleRes.error
         if (!cancelled) {
           setIsAdmin((roleRes.data?.length ?? 0) > 0)
           setAvatarUrl((profileRes.data?.avatar_url as string | null | undefined) ?? null)
+          setAccountId((profileRes.data?.account_id as string | null | undefined) ?? null)
+          setSupportPin((profileRes.data?.support_pin as string | null | undefined) ?? null)
         }
       } catch (error) {
         console.warn('Admin role lookup failed; treating as non-admin:', error)
         if (!cancelled) {
           setIsAdmin(false)
           setAvatarUrl(null)
+          setAccountId(null)
+          setSupportPin(null)
         }
       } finally {
         if (!cancelled) setRoleResolved(true)
@@ -77,10 +88,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Global unread badge (customer side): total user_unread_count across the
   // signed-in user's conversations, refreshed on any change to their rows.
-  // Demo mode is handled by useSupportChat, which sets the badge directly.
   useEffect(() => {
     if (!supabase || !session) {
-      if (!isDemo) setSupportUnread(0)
+      setSupportUnread(0)
       return
     }
     const sb = supabase
@@ -114,15 +124,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cancelled = true
       void sb.removeChannel(channel)
     }
-  }, [session, isDemo])
+  }, [session])
 
   return (
     <SessionContext.Provider
       value={{
         session,
         isAdmin,
-        isDemo,
         avatarUrl,
+        accountId,
+        supportPin,
         setAvatarUrl,
         roleResolved,
         supportUnread,

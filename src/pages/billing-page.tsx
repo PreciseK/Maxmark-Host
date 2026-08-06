@@ -4,6 +4,7 @@ import { ArrowUpDown, MoreVertical, CreditCard, Plus, Trash2 } from 'lucide-reac
 import { fetchBillingData, type BillingData, type PaymentMethod } from '@/lib/db/billing'
 import { verifyInvoicePayment } from '@/lib/functions'
 import { paymentReferenceFromSearch } from '@/lib/paystack'
+import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { PaystackCheckout } from '@/components/paystack-checkout'
 
@@ -14,6 +15,7 @@ const fmtNgn = (n: number) =>
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 export function BillingPage() {
+  const { session, accountId } = useSession()
   const [searchParams, setSearchParams] = useSearchParams()
   const processedPaymentRef = useRef<string | null>(null)
   const activeTab = searchParams.get('tab') || 'invoices'
@@ -307,11 +309,11 @@ export function BillingPage() {
               <div className="space-y-3.5 text-xs">
                 <div className="flex justify-between border-b border-[#232328]/30 pb-2">
                   <span className="text-muted-foreground">Contact Email</span>
-                  <span className="text-white font-medium">gloria.belleboa@gmail.com</span>
+                  <span className="text-white font-medium">{session?.user.email ?? '—'}</span>
                 </div>
                 <div className="flex justify-between border-b border-[#232328]/30 pb-2">
                   <span className="text-muted-foreground">Account ID</span>
-                  <span className="text-white font-mono font-medium">144075</span>
+                  <span className="text-white font-mono font-medium">{accountId ?? '—'}</span>
                 </div>
                 <div className="flex justify-between pb-1">
                   <span className="text-muted-foreground">Support PIN</span>

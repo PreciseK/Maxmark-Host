@@ -8,11 +8,13 @@ export interface SessionContextValue {
   session: Session | null
   /** True when the signed-in user holds the 'admin' role in user_roles. */
   isAdmin: boolean
-  /** True only when VITE_DEMO_MODE explicitly enables sample data. */
-  isDemo: boolean
   /** The signed-in user's avatar (R2 public URL), if one has been uploaded. */
   avatarUrl: string | null
   setAvatarUrl: (url: string | null) => void
+  /** Human-facing account number from user_profiles (e.g. MAX-1A2B3C4D). */
+  accountId: string | null
+  /** The user's support PIN from user_profiles; shown only on request. */
+  supportPin: string | null
   /**
    * False until the admin-role lookup for the current session settles.
    * Route guards wait on this to avoid redirecting mid-lookup.

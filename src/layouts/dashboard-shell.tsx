@@ -88,7 +88,8 @@ const billingNavItems = [
 
 export function DashboardShell() {
   const location = useLocation()
-  const { session, isAdmin, isDemo, supportUnread, avatarUrl, setAvatarUrl } = useSession()
+  const { session, isAdmin, supportUnread, avatarUrl, setAvatarUrl, accountId, supportPin } =
+    useSession()
   const [showPin, setShowPin] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [showMore, setShowMore] = useState(() => {
@@ -103,11 +104,12 @@ export function DashboardShell() {
   const isBilling = location.pathname.startsWith('/billing')
   const activeTab = searchParams.get('tab') || (isBilling ? 'invoices' : 'credentials')
 
-  // Live identity when signed in; the familiar demo persona otherwise.
-  const clientEmail = session?.user.email ?? 'gloria.belleboa@gmail.com'
+  // CustomerRoute guarantees a session here, so these only ever render the
+  // signed-in identity; the empty fallbacks exist to satisfy the null type.
+  const clientEmail = session?.user.email ?? ''
   const clientName = session?.user.email
     ? session.user.email.split('@')[0].replace(/[._-]+/g, ' ')
-    : 'Gloria Belleboa'
+    : ''
   const clientInitials = clientName
     .split(' ')
     .map((part) => part.charAt(0))
@@ -121,7 +123,7 @@ export function DashboardShell() {
   async function handleAvatarSelected(fileList: FileList | null) {
     const file = fileList?.[0]
     if (!file) return
-    if (isDemo || !supabase || !session) {
+    if (!supabase || !session) {
       setAvatarUrl(URL.createObjectURL(file))
       return
     }
@@ -298,7 +300,7 @@ export function DashboardShell() {
                     )
                   })}
 
-                  {isAdmin || isDemo ? (
+                  {isAdmin ? (
                     <NavLink
                       className={({ isActive }) =>
                         cn(
@@ -417,13 +419,13 @@ export function DashboardShell() {
               </div>
               <div className="w-px h-3 bg-[#232328] hidden sm:block" />
               <div>
-                Account ID: <span className="text-white font-medium">144075</span>
+                Account ID: <span className="text-white font-medium">{accountId ?? '—'}</span>
               </div>
               <div className="w-px h-3 bg-[#232328] hidden sm:block" />
               <div className="flex items-center gap-1.5">
                 <span>PIN:</span>
                 <span className="text-white font-mono font-medium tracking-widest">
-                  {showPin ? '144075' : '••••••'}
+                  {showPin ? (supportPin ?? '—') : '••••••'}
                 </span>
                 <button
                   className="text-muted-foreground hover:text-white transition duration-150"
