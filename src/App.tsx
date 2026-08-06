@@ -42,7 +42,10 @@ const AdminArea = lazy(() =>
   import('@/pages/admin/admin-area').then((m) => ({ default: m.AdminArea })),
 )
 
-function App() {
+import { NetworkBanner } from '@/components/ui/network-banner'
+import { SessionExpiredModal } from '@/components/ui/session-expired-modal'
+
+export function App() {
   const [sites, setSites] = useState<ManagedSite[]>([])
   const [plugins, setPlugins] = useState<MarketplacePlugin[]>([])
   const [pluginPurchases, setPluginPurchases] = useState<PluginPurchase[]>([])
@@ -114,6 +117,8 @@ function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
+        <NetworkBanner />
+        <SessionExpiredModal />
         {dataError ? (
           <div
             className="fixed inset-x-4 top-4 z-[100] rounded-md border border-amber-500/40 bg-[#251d0d] px-4 py-3 text-sm text-amber-100 shadow-xl"
