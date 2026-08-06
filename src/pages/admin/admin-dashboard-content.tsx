@@ -15,8 +15,9 @@ function isContentTab(value: string | null): value is ContentTab {
 }
 
 /**
- * Everything that renders on the customer dashboard home screen. Three tabs
- * rather than three nav entries, because these are one concept.
+ * Admin editor for everything that renders on the customer dashboard home
+ * screen. Three tabs rather than three nav entries, because these are one
+ * concept.
  */
 export function AdminDashboardContent() {
   const [searchParams, setSearchParams] = useSearchParams()
