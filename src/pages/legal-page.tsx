@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { ErrorState } from '@/components/ui/ui-states'
 
 const policies = {
   terms: {
@@ -41,7 +42,16 @@ export function LegalPage() {
   const { policy = 'terms' } = useParams()
   const content = policies[policy as keyof typeof policies]
 
-  if (!content) return <main className="min-h-screen bg-[#121214] p-8 text-white">Policy not found.</main>
+  if (!content) {
+    return (
+      <main className="min-h-screen bg-[#121214] flex items-center justify-center p-6 text-white">
+        <ErrorState
+          title="Policy Document Not Found"
+          message="The legal policy document you requested does not exist or has been moved."
+        />
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[#121214] px-5 py-12 text-white">

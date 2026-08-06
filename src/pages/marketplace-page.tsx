@@ -23,6 +23,7 @@ import {
   tierLabel,
   type UserMarketplaceTier,
 } from '@/lib/tiers'
+import { EmptyState, NoSearchResultState } from '@/components/ui/ui-states'
 import {
   acquireItem,
   downloadMarketplacePlugin,
@@ -425,10 +426,30 @@ export function MarketplacePage({
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        {filteredPlugins.map((plugin) => {
-          const purchase = getPurchase(plugin.id)
-          const isBusy = busyPluginId === plugin.id
+      {filteredPlugins.length === 0 ? (
+        <div className="py-6">
+          {plugins.length === 0 ? (
+            <EmptyState
+              badge="Marketplace Catalog"
+              icon={<ShoppingBag className="h-7 w-7 text-violet-400" />}
+              title="Marketplace Catalog Empty"
+              description="No WordPress plugins or themes are currently published in the catalog."
+            />
+          ) : (
+            <NoSearchResultState
+              searchQuery={searchValue || activeCategory}
+              onClearSearch={() => {
+                setSearchValue('')
+                setActiveCategory('All')
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <section className="grid gap-4 xl:grid-cols-2">
+          {filteredPlugins.map((plugin) => {
+            const purchase = getPurchase(plugin.id)
+            const isBusy = busyPluginId === plugin.id
 
           return (
             <Card className="overflow-hidden" key={plugin.id}>
@@ -576,6 +597,7 @@ export function MarketplacePage({
           )
         })}
       </section>
+      )}
 
       <Card>
         <CardHeader>
@@ -640,10 +662,11 @@ export function MarketplacePage({
               </table>
             </div>
           ) : (
-            <div className="rounded-[28px] border border-dashed border-border bg-secondary/40 p-5 text-sm text-muted-foreground">
-              No licenses yet. Claim an included item or buy one above and Maxmark
-              will keep the download available here for future installs.
-            </div>
+            <EmptyState
+              icon={<ShoppingBag className="h-6 w-6 text-violet-400" />}
+              title="No Active Licenses"
+              description="Claim an included plugin or purchase one above and Maxmark will keep your download available here for repeat installs."
+            />
           )}
         </CardContent>
       </Card>
