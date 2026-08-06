@@ -8,7 +8,6 @@ import {
   MoreVertical,
   ArrowUpDown,
   Plus,
-  ArrowLeft,
   Database,
   Globe,
   CheckCircle2,
@@ -16,9 +15,85 @@ import {
   ExternalLink,
 } from 'lucide-react'
 
+import { MetricChart } from '@/components/site/metric-chart'
+import { SettingToggle } from '@/components/site/setting-toggle'
+import { useSiteResources } from '@/hooks/use-site-resources'
 import { fetchBackupLogs, type BackupLog } from '@/lib/db/backup-logs'
+import { latestByMetric } from '@/lib/db/analytics'
+import { CONTAINER_TYPES, type ContainerStatus } from '@/lib/db/containers'
+import { INTEGRATION_TYPES, type IntegrationStatus } from '@/lib/db/integrations'
 import { supabase } from '@/lib/supabase'
+import { formatDateLabel } from '@/lib/utils'
 import type { ManagedSite } from '@/types/provisioning'
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/ui-states'
+
+const containerLabels: Record<(typeof CONTAINER_TYPES)[number], string> = {
+  elasticsearch: 'Elasticsearch',
+  rabbitmq: 'RabbitMQ',
+  solr: 'Solr',
+}
+
+/** Presentation copy per container type; status always comes from the database. */
+const containerMeta: Record<
+  (typeof CONTAINER_TYPES)[number],
+  { desc: string; emoji: string; color: string }
+> = {
+  elasticsearch: {
+    desc: 'Elasticsearch is a distributed, RESTful search and analytics engine capable of addressing a growing number of use cases.',
+    emoji: '🔍',
+    color: 'text-sky-500',
+  },
+  rabbitmq: {
+    desc: 'RabbitMQ is the most widely deployed open source message broker, aiding in process asynchronous queues and background workers.',
+    emoji: '🐇',
+    color: 'text-amber-500',
+  },
+  solr: {
+    desc: 'Solr is highly reliable, scalable and fault tolerant, providing distributed indexing, replication and load-balanced querying.',
+    emoji: '☀️',
+    color: 'text-red-500',
+  },
+}
+
+const integrationLabels: Record<(typeof INTEGRATION_TYPES)[number], string> = {
+  new_relic: 'New Relic',
+  datadog: 'Datadog',
+  cloudflare: 'Cloudflare',
+}
+
+/** Presentation copy per integration; status always comes from the database. */
+const integrationMeta: Record<
+  (typeof INTEGRATION_TYPES)[number],
+  { section: string; desc: string; credentialLabel: string }
+> = {
+  new_relic: {
+    section: 'Performance Monitoring',
+    desc: "Provide a license key to add New Relic's performance monitoring to your site. This can help in diagnosing performance issues.",
+    credentialLabel: 'New Relic License Key',
+  },
+  datadog: {
+    section: 'Observability',
+    desc: 'Connect Datadog to forward application and infrastructure metrics from this site to your Datadog account.',
+    credentialLabel: 'Datadog API Key',
+  },
+  cloudflare: {
+    section: 'Edge Network',
+    desc: 'Connect Cloudflare to manage caching, DNS, and edge protection for this site from your Cloudflare account.',
+    credentialLabel: 'Cloudflare API Token',
+  },
+}
+
+const containerStatusClass: Record<ContainerStatus, string> = {
+  enabled: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+  provisioning: 'border-sky-500/30 bg-sky-500/10 text-sky-400',
+  failed: 'border-red-500/30 bg-red-500/10 text-red-400',
+  disabled: 'border-white/20 bg-white/5 text-white/70',
+}
+
+const integrationStatusClass: Record<IntegrationStatus, string> = {
+  enabled: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+  disabled: 'border-white/20 bg-white/5 text-white/70',
+}
 
 function fmtBackupDate(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -56,6 +131,12 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
   const [copiedText, setCopiedText] = useState<string | null>(null)
   const [backupLogs, setBackupLogs] = useState<BackupLog[]>([])
   const [backupLoadError, setBackupLoadError] = useState(false)
+  const {
+    resources,
+    loading: resourcesLoading,
+    error: resourcesError,
+    retry: retryResources,
+  } = useSiteResources(siteId, activeTab)
 
   useEffect(() => {
     if (!supabase || !siteId) return
@@ -79,23 +160,13 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
 
   if (!site) {
     return (
-      <div className="bg-[#161619] border border-[#232328] rounded-lg p-6 space-y-4 max-w-xl mx-auto mt-10">
-        <span className="inline-block border border-amber-500/30 bg-amber-500/10 text-amber-500 px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase">
-          Site not found
-        </span>
-        <h2 className="text-xl font-bold text-white">
-          This site could not be found.
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          It may have been removed, or you may no longer have access to it.
-        </p>
-        <Link
-          to="/sites"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded-md text-xs font-semibold border border-[#2d2d34] transition text-white"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to sites
-        </Link>
+      <div className="py-12 max-w-xl mx-auto">
+        <ErrorState
+          title="Site Not Found"
+          message="This WordPress site could not be found or you may no longer have administrative access to it."
+          secondaryActionLabel="Back to Sites"
+          secondaryActionLink="/sites"
+        />
       </div>
     )
   }
@@ -122,12 +193,32 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
 
   const currentTabTitle = tabTitles[activeTab] || 'Credentials'
 
+  const latestMetrics = latestByMetric(resources.analytics)
+  const phpFpmSnapshots = resources.analytics.filter((s) => s.metric === 'php_fpm')
+  const webStatsSnapshots = resources.analytics.filter((s) => s.metric === 'web_stats')
+
   const ftpUsername = `ftp@${site.site_domain.replace(/[^a-z0-9]/g, '').slice(0, 10)}.nxcli.io`
 
   return (
     <div className="space-y-6">
       {backupLoadError ? <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">Backup history could not be loaded.</p> : null}
-      {/* Breadcrumbs */}
+
+      {resourcesError ? (
+        <ErrorState
+          error={resourcesError}
+          message={`The ${currentTabTitle} section could not be loaded.`}
+          onRetry={retryResources}
+          title="Section Unavailable"
+        />
+      ) : null}
+      {resourcesError ? (
+        <ErrorState
+          title="Site Metrics Error"
+          message="We were unable to load live server metrics for this site."
+          error={resourcesError}
+          onRetry={retryResources}
+        />
+      ) : null}
       <div className="text-xs text-muted-foreground text-left">
         <Link className="hover:text-white transition" to="/home">
           Home
@@ -562,39 +653,50 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               <h3 className="text-sm font-semibold text-white">Backup Records</h3>
             </div>
 
-            <div className="overflow-x-auto max-h-[500px]">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[#232328] text-xs text-muted-foreground bg-[#121214]">
-                    <th className="px-5 py-3 font-semibold">
-                      <button className="flex items-center gap-1.5 hover:text-white transition">
-                        Date & Time
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </th>
-                    <th className="px-5 py-3 font-semibold">Status</th>
-                    <th className="px-5 py-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#232328] text-white">
-                  {backupLogs.map((log) => (
-                    <tr className="hover:bg-[#1c1c20] transition" key={log.id}>
-                      <td className="px-5 py-3.5 font-medium">{fmtBackupDate(log.createdAt)}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`inline-flex border px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase ${backupStatusClass(log.status)}`}>
-                          {backupStatusLabel(log.status)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <button className="text-muted-foreground hover:text-white transition">
-                          <MoreVertical className="h-4 w-4" />
+            {backupLogs.length === 0 ? (
+              <div className="p-6">
+                <EmptyState
+                  badge="Automated Snapshots"
+                  icon={<Database className="h-7 w-7 text-violet-400" />}
+                  title="No Backups Recorded"
+                  description="Daily automated backup snapshots and on-demand manual backups will appear here."
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[500px]">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#232328] text-xs text-muted-foreground bg-[#121214]">
+                      <th className="px-5 py-3 font-semibold">
+                        <button className="flex items-center gap-1.5 hover:text-white transition">
+                          Date & Time
+                          <ArrowUpDown className="h-3 w-3" />
                         </button>
-                      </td>
+                      </th>
+                      <th className="px-5 py-3 font-semibold">Status</th>
+                      <th className="px-5 py-3 w-10"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#232328] text-white">
+                    {backupLogs.map((log) => (
+                      <tr className="hover:bg-[#1c1c20] transition" key={log.id}>
+                        <td className="px-5 py-3.5 font-medium">{fmtBackupDate(log.createdAt)}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex border px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase ${backupStatusClass(log.status)}`}>
+                            {backupStatusLabel(log.status)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <button className="text-muted-foreground hover:text-white transition">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             
             {/* Warning info block */}
             <div className="p-4 border-t border-[#232328] bg-[#121214] text-center text-muted-foreground text-xs leading-relaxed">
@@ -620,19 +722,57 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                 </button>
               </div>
 
-              {/* Dotted Empty State Container */}
-              <div className="border border-dashed border-[#2d2d34] rounded-lg p-10 flex flex-col items-center justify-center text-center space-y-4 bg-[#121214]">
-                <div className="h-10 w-10 bg-[#161619] border border-[#2d2d34] rounded-full flex items-center justify-center text-muted-foreground select-none">
-                  🧪
+              {resourcesLoading ? (
+                <TableSkeleton rows={2} />
+              ) : resources.staging.length === 0 ? (
+                <div className="border border-dashed border-[#2d2d34] rounded-lg p-10 flex flex-col items-center justify-center text-center space-y-4 bg-[#121214]">
+                  <div className="h-10 w-10 bg-[#161619] border border-[#2d2d34] rounded-full flex items-center justify-center text-muted-foreground select-none">
+                    🧪
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-white">There are no development environments for this site.</h4>
+                    <p className="text-muted-foreground text-xs">Create your first development environment.</p>
+                  </div>
+                  <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded border border-[#2d2d34] font-semibold text-white transition text-xs">
+                    Add Development Environment
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-white">There are no development environments for this site.</h4>
-                  <p className="text-muted-foreground text-xs">Create your first development environment.</p>
-                </div>
-                <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded border border-[#2d2d34] font-semibold text-white transition text-xs">
-                  Add Development Environment
-                </button>
-              </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#232328] text-[10px] uppercase text-muted-foreground bg-[#121214] font-semibold">
+                      <th className="px-5 py-2.5">Environment</th>
+                      <th className="px-5 py-2.5">Status</th>
+                      <th className="px-5 py-2.5">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#232328] text-white">
+                    {resources.staging.map((env) => (
+                      <tr className="hover:bg-[#1c1c20] transition" key={env.id}>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium">{env.siteDomain}</span>
+                            <button
+                              className="text-muted-foreground hover:text-white"
+                              onClick={() => handleCopy(env.siteDomain)}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex border border-[#2d2d34] bg-[#121214] px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize">
+                            {env.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-muted-foreground">
+                          {formatDateLabel(env.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
@@ -687,20 +827,32 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#232328] text-white">
-                <tr className="hover:bg-[#1c1c20] transition">
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium">{site.site_domain}</span>
-                      <button
-                        className="text-muted-foreground hover:text-white"
-                        onClick={() => handleCopy(site.site_domain)}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">Alias/CNAME</td>
-                </tr>
+                {resources.pointerDomains.length === 0 ? (
+                  <tr>
+                    <td className="px-5 py-6 text-muted-foreground" colSpan={2}>
+                      {resourcesLoading
+                        ? 'Loading pointer domains…'
+                        : 'No pointer domains are configured for this site.'}
+                    </td>
+                  </tr>
+                ) : (
+                  resources.pointerDomains.map((pointer) => (
+                    <tr className="hover:bg-[#1c1c20] transition" key={pointer.id}>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium">{pointer.domain}</span>
+                          <button
+                            className="text-muted-foreground hover:text-white"
+                            onClick={() => handleCopy(pointer.domain)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-muted-foreground capitalize">{pointer.type}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -750,42 +902,22 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
         <div className="grid gap-6 lg:grid-cols-[320px_1fr] text-xs text-left">
           {/* Left Column - Bandwidth & Auto Scaling */}
           <div className="space-y-6">
-            {/* Price Details */}
+            {/* Bandwidth */}
             <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-3">
-              <div className="flex justify-between items-center pb-2.5 border-b border-[#232328]">
-                <span className="text-muted-foreground">Base Price</span>
-                <span className="text-white font-semibold">$0.00 USD (250 GBs)</span>
-              </div>
-              <div className="flex justify-between items-center pb-2.5 border-b border-[#232328]">
-                <span className="text-muted-foreground">Remaining Bandwidth</span>
-                <span className="text-white font-semibold">250 GBs</span>
-              </div>
+              <h3 className="text-sm font-semibold text-white">Bandwidth</h3>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Overage</span>
-                <span className="text-white font-semibold">$0.00 USD (0 GBs at $0.10/GB)</span>
+                <span className="text-muted-foreground">Latest Recorded Usage</span>
+                <span className="text-white font-semibold">
+                  {latestMetrics.bandwidth === null
+                    ? resourcesLoading
+                      ? '…'
+                      : 'No data yet'
+                    : `${latestMetrics.bandwidth.toLocaleString()} GB`}
+                </span>
               </div>
-            </div>
-
-            {/* Auto Scaling */}
-            <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-white">Auto Scaling Usage</h3>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center pb-2 border-b border-[#232328]">
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    Free Time Left
-                    <HelpCircle className="h-3 w-3" />
-                  </span>
-                  <span className="text-white font-mono font-semibold">23:56</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b border-[#232328]">
-                  <span className="text-muted-foreground">Billed Time Spent</span>
-                  <span className="text-white font-mono font-semibold">00:00</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Amount</span>
-                  <span className="text-white font-mono font-semibold">$0.00</span>
-                </div>
-              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Sourced from the most recent bandwidth snapshot recorded for this site.
+              </p>
             </div>
           </div>
 
@@ -808,40 +940,12 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                 </div>
               </div>
 
-              {/* Chart Plot Area */}
-              <div className="h-60 border-l border-b border-[#232328] relative flex items-end gap-1.5 px-3 pt-4 select-none">
-                {/* Y-Axis Labels */}
-                <div className="absolute left-[-25px] top-4 text-[9px] text-muted-foreground">1</div>
-                <div className="absolute left-[-25px] top-28 text-[9px] text-muted-foreground">0.5</div>
-                <div className="absolute left-[-25px] bottom-1 text-[9px] text-muted-foreground">0.1</div>
-
-                {/* Bars */}
-                {Array.from({ length: 30 }).map((_, idx) => {
-                  const heights = [20, 35, 15, 60, 45, 10, 80, 25, 30, 40, 75, 95, 5, 20, 45, 60, 30, 15, 50, 85, 40, 20, 10, 55, 65, 35, 90, 25, 45, 10]
-                  const h = heights[idx % heights.length]
-                  return (
-                    <div className="flex-1 flex flex-col justify-end h-full" key={idx}>
-                      <div
-                        className="bg-[#d97706]/80 hover:bg-[#d97706] rounded-t-sm transition-all"
-                        style={{ height: `${h}%` }}
-                      ></div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* X-Axis labels */}
-              <div className="flex justify-between text-[8px] text-muted-foreground px-2">
-                <span>12:05 AM</span>
-                <span>02:26 AM</span>
-                <span>05:20 AM</span>
-                <span>08:30 AM</span>
-                <span>11:45 AM</span>
-                <span>02:40 PM</span>
-                <span>05:36 PM</span>
-                <span>08:45 PM</span>
-                <span>12:00 AM</span>
-              </div>
+              <MetricChart
+                barClassName="bg-[#d97706]/80 hover:bg-[#d97706]"
+                height="h-60"
+                loading={resourcesLoading}
+                snapshots={phpFpmSnapshots}
+              />
               <div className="text-center text-[10px] text-muted-foreground">Total Processes</div>
             </div>
 
@@ -853,22 +957,13 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-xs font-semibold text-white">PHP-FPM</h4>
-                <div className="h-40 border-l border-b border-[#232328] relative flex items-end gap-1 px-3 pt-4 select-none">
-                  {/* Bars */}
-                  {Array.from({ length: 40 }).map((_, idx) => {
-                    const heights = [10, 15, 8, 45, 30, 5, 60, 20, 25, 35, 50, 70, 4, 15, 30, 40, 20, 10, 35, 65, 30, 15, 8, 40, 45, 25, 75, 20, 30, 5]
-                    const h = heights[idx % heights.length]
-                    return (
-                      <div className="flex-1 flex flex-col justify-end h-full" key={idx}>
-                        <div
-                          className="bg-[#3b82f6]/60 hover:bg-[#3b82f6] rounded-t-sm transition-all"
-                          style={{ height: `${h}%` }}
-                        ></div>
-                      </div>
-                    )
-                  })}
-                </div>
+                <h4 className="text-xs font-semibold text-white">Requests</h4>
+                <MetricChart
+                  barClassName="bg-[#3b82f6]/60 hover:bg-[#3b82f6]"
+                  height="h-40"
+                  loading={resourcesLoading}
+                  snapshots={webStatsSnapshots}
+                />
               </div>
             </div>
           </div>
@@ -918,9 +1013,10 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                 {/* Switch Toggle */}
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground">Deliver Mail Locally</span>
-                  <button className="w-10 h-6 bg-[#5c4df0] rounded-full relative flex items-center transition px-1">
-                    <span className="w-4 h-4 bg-white rounded-full translate-x-4 transition-transform duration-200"></span>
-                  </button>
+                  <SettingToggle
+                    enabled={resources.settings?.localMailDelivery}
+                    label="Deliver mail locally"
+                  />
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
@@ -947,54 +1043,44 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#232328] text-white">
-                  <tr className="hover:bg-[#1c1c20] transition">
-                    <td className="px-5 py-4 font-mono font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <span>hello@{site.site_domain}</span>
-                        <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(`hello@${site.site_domain}`)}>
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">Unlimited</td>
-                    <td className="px-5 py-4 font-mono text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <span>{site.ftpHostname}</span>
-                        <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(site.ftpHostname)}>
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <button className="text-muted-foreground hover:text-white">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-[#1c1c20] transition">
-                    <td className="px-5 py-4 font-mono font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <span>postmaster@{site.site_domain}</span>
-                        <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(`postmaster@${site.site_domain}`)}>
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">Unlimited</td>
-                    <td className="px-5 py-4 font-mono text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <span>{site.ftpHostname}</span>
-                        <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(site.ftpHostname)}>
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <button className="text-muted-foreground hover:text-white">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
+                  {resources.emailBoxes.length === 0 ? (
+                    <tr>
+                      <td className="px-5 py-6 text-muted-foreground" colSpan={4}>
+                        {resourcesLoading
+                          ? 'Loading email boxes…'
+                          : 'No email boxes have been created for this site.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    resources.emailBoxes.map((box) => (
+                      <tr className="hover:bg-[#1c1c20] transition" key={box.id}>
+                        <td className="px-5 py-4 font-mono font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span>{box.emailAddress}</span>
+                            <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(box.emailAddress)}>
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          {box.storageQuotaMb === null ? 'Unlimited' : `${box.storageQuotaMb} MB`}
+                        </td>
+                        <td className="px-5 py-4 font-mono text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <span>{box.hostname}</span>
+                            <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(box.hostname)}>
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <button className="text-muted-foreground hover:text-white">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1007,12 +1093,44 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
-              <div className="border border-dashed border-[#2d2d34] rounded-lg m-5 p-10 flex flex-col items-center justify-center text-center space-y-2 bg-[#121214]">
-                <div className="h-8 w-8 bg-[#161619] border border-[#2d2d34] rounded-full flex items-center justify-center text-muted-foreground select-none">
-                  📧
+              {resources.emailAliases.length === 0 ? (
+                <div className="border border-dashed border-[#2d2d34] rounded-lg m-5 p-10 flex flex-col items-center justify-center text-center space-y-2 bg-[#121214]">
+                  <div className="h-8 w-8 bg-[#161619] border border-[#2d2d34] rounded-full flex items-center justify-center text-muted-foreground select-none">
+                    📧
+                  </div>
+                  <h4 className="text-xs font-bold text-white">
+                    {resourcesLoading
+                      ? 'Loading email aliases…'
+                      : 'There are no email aliases for this host.'}
+                  </h4>
                 </div>
-                <h4 className="text-xs font-bold text-white">There are no email aliases for this host.</h4>
-              </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#232328] text-[10px] uppercase text-muted-foreground bg-[#121214] font-semibold">
+                      <th className="px-5 py-2.5">Alias</th>
+                      <th className="px-5 py-2.5">Forwards To</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#232328] text-white">
+                    {resources.emailAliases.map((alias) => (
+                      <tr className="hover:bg-[#1c1c20] transition" key={alias.id}>
+                        <td className="px-5 py-4 font-mono font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span>{alias.aliasAddress}</span>
+                            <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(alias.aliasAddress)}>
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 font-mono text-muted-foreground">
+                          {alias.targetAddress}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
@@ -1039,40 +1157,64 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             {/* SSL Certificate Status */}
             <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
               <h3 className="text-sm font-semibold text-white">SSL Certificate Status</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                An SSL certificate is installed. See below for the certificate details.
-              </p>
-              
-              <div className="flex items-center gap-3 pt-1">
-                <CheckCircle2 className="h-6 w-6 text-emerald-500 fill-emerald-500/10 shrink-0" />
-                <span className="text-lg font-bold text-white leading-none">Installed</span>
-              </div>
+              {resourcesLoading && !resources.ssl ? (
+                <p className="text-muted-foreground">Loading certificate details…</p>
+              ) : !resources.ssl || resources.ssl.status === 'not_installed' ? (
+                <>
+                  <p className="text-muted-foreground leading-relaxed">
+                    No SSL certificate is installed for this site yet. Enable Auto Let's
+                    Encrypt to have one provisioned and renewed automatically.
+                  </p>
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="text-lg font-bold text-white leading-none">Not Installed</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {resources.ssl.status === 'pending'
+                      ? 'A certificate has been requested and is pending issuance.'
+                      : 'An SSL certificate is installed. See below for the certificate details.'}
+                  </p>
 
-              <div className="space-y-3 pt-3 border-t border-[#232328] text-xs">
-                <div className="flex justify-between items-center pb-2 border-b border-[#232328]">
-                  <span className="text-muted-foreground">Domain</span>
-                  <span className="text-white font-mono font-medium flex items-center gap-1.5">
-                    {site.cnameTarget}
-                    <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(site.cnameTarget)}>
-                      <Copy className="h-3.5 w-3.5" />
+                  <div className="flex items-center gap-3 pt-1">
+                    {resources.ssl.status === 'installed' && (
+                      <CheckCircle2 className="h-6 w-6 text-emerald-500 fill-emerald-500/10 shrink-0" />
+                    )}
+                    <span className="text-lg font-bold text-white leading-none capitalize">
+                      {resources.ssl.status === 'installed' ? 'Installed' : 'Pending'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 pt-3 border-t border-[#232328] text-xs">
+                    <div className="flex justify-between items-center pb-2 border-b border-[#232328]">
+                      <span className="text-muted-foreground">Domain</span>
+                      <span className="text-white font-mono font-medium flex items-center gap-1.5">
+                        {resources.ssl.domain}
+                        <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(resources.ssl!.domain)}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-[#232328]">
+                      <span className="text-muted-foreground">Expiration Date</span>
+                      <span className="text-white font-semibold">
+                        {resources.ssl.expiresAt ? formatDateLabel(resources.ssl.expiresAt) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Key Length</span>
+                      <span className="text-white font-semibold">{resources.ssl.keyLength} bits</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded border border-[#2d2d34] font-semibold text-white transition text-xs">
+                      Uninstall
                     </button>
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b border-[#232328]">
-                  <span className="text-muted-foreground">Expiration Date</span>
-                  <span className="text-white font-semibold">Jun 10, 2026</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Key Length</span>
-                  <span className="text-white font-semibold">2048 bits</span>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded border border-[#2d2d34] font-semibold text-white transition text-xs">
-                  Uninstall
-                </button>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1087,9 +1229,10 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               {/* Master toggle */}
               <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-xs">Enable</span>
-                <button className="w-10 h-6 bg-[#5c4df0] rounded-full relative flex items-center transition px-1">
-                  <span className="w-4 h-4 bg-white rounded-full translate-x-4 transition-transform duration-200"></span>
-                </button>
+                <SettingToggle
+                  enabled={resources.settings?.autoLetsEncrypt}
+                  label="Auto Let's Encrypt certificate"
+                />
               </div>
 
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1103,18 +1246,16 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                 
                 {/* Domain list with toggles */}
                 <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white">{site.site_domain}</span>
-                    <button className="w-8 h-5 bg-[#5c4df0] rounded-full relative flex items-center transition px-0.5">
-                      <span className="w-3.5 h-3.5 bg-white rounded-full translate-x-3.5 transition-transform duration-200"></span>
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white">www.{site.site_domain}</span>
-                    <button className="w-8 h-5 bg-[#5c4df0] rounded-full relative flex items-center transition px-0.5">
-                      <span className="w-3.5 h-3.5 bg-white rounded-full translate-x-3.5 transition-transform duration-200"></span>
-                    </button>
-                  </div>
+                  {[site.site_domain, `www.${site.site_domain}`].map((domain) => (
+                    <div className="flex items-center justify-between" key={domain}>
+                      <span className="text-white">{domain}</span>
+                      <SettingToggle
+                        enabled={resources.ssl?.domainsIncluded.includes(domain) ?? false}
+                        label={`Include ${domain} on the certificate`}
+                        size="sm"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1196,7 +1337,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                       </button>
                     </div>
                   </td>
-                  <td className="px-5 py-4">74.31 MB</td>
+                  <td className="px-5 py-4">{site.metrics.diskUsedGb.toFixed(2)} GB</td>
                   <td className="px-5 py-4">
                     <button className="text-muted-foreground hover:text-white">
                       <MoreVertical className="h-4 w-4" />
@@ -1262,9 +1403,10 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white">Core Upgrades</h3>
-                <button className="w-10 h-6 bg-[#5c4df0] rounded-full relative flex items-center transition px-1">
-                  <span className="w-4 h-4 bg-white rounded-full translate-x-4 transition-transform duration-200"></span>
-                </button>
+                <SettingToggle
+                  enabled={resources.settings?.coreUpgrades}
+                  label="Core upgrades"
+                />
               </div>
               <p className="text-muted-foreground leading-relaxed">
                 If you turn off Core Updates, you will pause WordPress Core updates for 90 days. Turn off with caution, as your site may become susceptible to attack.
@@ -1278,9 +1420,10 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   <span className="inline-flex h-6 w-6 items-center justify-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-bold rounded font-mono select-none">N</span>
                   <h3 className="text-sm font-semibold text-white">NGINX Accelerator</h3>
                 </div>
-                <button className="w-10 h-6 bg-[#5c4df0] rounded-full relative flex items-center transition px-1">
-                  <span className="w-4 h-4 bg-white rounded-full translate-x-4 transition-transform duration-200"></span>
-                </button>
+                <SettingToggle
+                  enabled={resources.settings?.nginxAccelerator}
+                  label="NGINX accelerator"
+                />
               </div>
               <p className="text-muted-foreground leading-relaxed">
                 NGINX accelerates content and application delivery. The NGINX Cache is a micro-cache that compresses and stores static content in-memory for short periods of time.
@@ -1325,9 +1468,12 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 You can require visitors to have a password to view your site. This can be especially useful during site development.
               </p>
-              <div className="flex justify-end pt-1">
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-muted-foreground">
+                  {resources.settings?.passwordProtection ? 'Currently enabled' : 'Currently disabled'}
+                </span>
                 <button className="px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition">
-                  Enable
+                  {resources.settings?.passwordProtection ? 'Disable' : 'Enable'}
                 </button>
               </div>
             </div>
@@ -1418,6 +1564,8 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   <input
                     type="email"
                     className="w-full bg-[#121214] border border-[#232328] rounded p-2 text-xs text-white placeholder-muted-foreground focus:outline-none focus:border-[#5c4df0]/50 transition-colors"
+                    defaultValue={resources.settings?.cronMailTo ?? ''}
+                    key={resources.settings?.cronMailTo ?? 'no-mail-to'}
                     placeholder="Enter email address"
                   />
                 </div>
@@ -1437,85 +1585,130 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               </button>
             </div>
             
-            {/* Dotted empty state */}
-            <div className="border border-dashed border-[#2d2d34] rounded-lg m-5 p-10 flex flex-col items-center justify-center text-center space-y-3 bg-[#121214]">
-              <h4 className="text-sm font-bold text-white">All Clear!</h4>
-              <p className="text-muted-foreground text-xs">You don't have any tasks yet.</p>
-              <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded border border-[#2d2d34] font-semibold text-white transition text-xs">
-                Add Task
-              </button>
-            </div>
+            {resources.cronTasks.length === 0 ? (
+              <div className="border border-dashed border-[#2d2d34] rounded-lg m-5 p-10 flex flex-col items-center justify-center text-center space-y-3 bg-[#121214]">
+                <h4 className="text-sm font-bold text-white">
+                  {resourcesLoading ? 'Loading tasks…' : 'All Clear!'}
+                </h4>
+                {!resourcesLoading && (
+                  <>
+                    <p className="text-muted-foreground text-xs">You don't have any tasks yet.</p>
+                    <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded border border-[#2d2d34] font-semibold text-white transition text-xs">
+                      Add Task
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#232328] text-[10px] uppercase text-muted-foreground bg-[#121214] font-semibold">
+                    <th className="px-5 py-2.5">Command</th>
+                    <th className="px-5 py-2.5">Schedule</th>
+                    <th className="px-5 py-2.5">Mail To</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#232328] text-white">
+                  {resources.cronTasks.map((task) => (
+                    <tr className="hover:bg-[#1c1c20] transition" key={task.id}>
+                      <td className="px-5 py-4 font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate max-w-md">{task.command}</span>
+                          <button
+                            className="text-muted-foreground hover:text-white shrink-0"
+                            onClick={() => handleCopy(task.command)}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 font-mono text-muted-foreground">{task.schedule}</td>
+                      <td className="px-5 py-4 text-muted-foreground">{task.mailTo ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === 'containers' && (
         <div className="space-y-6 text-xs text-left">
-          {[
-            {
-              name: 'Elasticsearch',
-              desc: 'Elasticsearch is a distributed, RESTful search and analytics engine capable of addressing a growing number of use cases.',
-              emoji: '🔍',
-              color: 'text-sky-500',
-            },
-            {
-              name: 'RabbitMQ',
-              desc: 'RabbitMQ is the most widely deployed open source message broker, aiding in process asynchronous queues and background workers.',
-              emoji: '🐇',
-              color: 'text-amber-500',
-            },
-            {
-              name: 'Solr',
-              desc: 'Solr is highly reliable, scalable and fault tolerant, providing distributed indexing, replication and load-balanced querying.',
-              emoji: '☀️',
-              color: 'text-red-500',
-            },
-          ].map((container, idx) => (
-            <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4" key={idx}>
-              <div className="flex items-center gap-3.5 min-w-0">
-                <span className={`text-2xl shrink-0 ${container.color}`}>{container.emoji}</span>
-                <div className="space-y-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-white">{container.name}</h3>
-                  <p className="text-muted-foreground leading-relaxed truncate max-w-xl sm:max-w-2xl lg:max-w-3xl">
-                    {container.desc}
-                  </p>
+          {CONTAINER_TYPES.map((type) => {
+            const meta = containerMeta[type]
+            // Absent row means the service was never provisioned for this site.
+            const status = resources.containers.find((c) => c.containerType === type)?.status ?? 'disabled'
+            return (
+              <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4" key={type}>
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <span className={`text-2xl shrink-0 ${meta.color}`}>{meta.emoji}</span>
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-white">{containerLabels[type]}</h3>
+                      <span
+                        className={`inline-flex border px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${containerStatusClass[status]}`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed truncate max-w-xl sm:max-w-2xl lg:max-w-3xl">
+                      {meta.desc}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  className="px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition shrink-0 disabled:cursor-not-allowed disabled:bg-[#26262b] disabled:text-muted-foreground"
+                  disabled={status === 'provisioning'}
+                >
+                  {status === 'enabled' ? 'Disable' : status === 'provisioning' ? 'Provisioning…' : 'Enable'}
+                </button>
               </div>
-              <button className="px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition shrink-0">
-                Enable
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {activeTab === 'integrations' && (
         <div className="space-y-6 text-xs text-left">
-          {/* Performance Monitoring */}
-          <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-white">Performance Monitoring</h3>
-            <div className="border-t border-[#232328] pt-4 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-              <div className="space-y-3 flex-1 w-full max-w-xl">
-                <div>
-                  <h4 className="text-sm font-bold text-white mb-1">New Relic</h4>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Provide a license key to add New Relic's performance monitoring to your site. This can help in diagnosing performance issues.
-                  </p>
-                </div>
-                <div className="pt-1">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">New Relic License Key</span>
-                  <input
-                    type="password"
-                    className="w-full bg-[#121214] border border-[#232328] rounded p-2 text-xs text-white placeholder-muted-foreground focus:outline-none focus:border-[#5c4df0]/50 transition-colors font-mono"
-                    placeholder="••••••••••••••••••••••••••••••••"
-                  />
+          {INTEGRATION_TYPES.map((type) => {
+            const meta = integrationMeta[type]
+            // Absent row means the integration was never configured for this site.
+            const status = resources.integrations.find((i) => i.type === type)?.status ?? 'disabled'
+            return (
+              <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4" key={type}>
+                <h3 className="text-sm font-semibold text-white">{meta.section}</h3>
+                <div className="border-t border-[#232328] pt-4 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+                  <div className="space-y-3 flex-1 w-full max-w-xl">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-bold text-white">{integrationLabels[type]}</h4>
+                        <span
+                          className={`inline-flex border px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${integrationStatusClass[status]}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">{meta.desc}</p>
+                    </div>
+                    <div className="pt-1">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
+                        {meta.credentialLabel}
+                      </span>
+                      <input
+                        type="password"
+                        className="w-full bg-[#121214] border border-[#232328] rounded p-2 text-xs text-white placeholder-muted-foreground focus:outline-none focus:border-[#5c4df0]/50 transition-colors font-mono"
+                        placeholder="••••••••••••••••••••••••••••••••"
+                      />
+                    </div>
+                  </div>
+                  <button className="px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition shrink-0">
+                    {status === 'enabled' ? 'Disable' : 'Enable'}
+                  </button>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white transition shrink-0">
-                Enable
-              </button>
-            </div>
-          </div>
+            )
+          })}
         </div>
       )}
 
