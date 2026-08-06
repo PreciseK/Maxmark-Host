@@ -29,6 +29,8 @@ const SupportPage = lazyPage(() => import('@/pages/support-page'), 'SupportPage'
 const BillingPage = lazyPage(() => import('@/pages/billing-page'), 'BillingPage')
 const SslPage = lazyPage(() => import('@/pages/ssl-page'), 'SslPage')
 const LegalPage = lazyPage(() => import('@/pages/legal-page'), 'LegalPage')
+const KbPage = lazyPage(() => import('@/pages/kb-page'), 'KbPage')
+const KbArticlePage = lazyPage(() => import('@/pages/kb-article-page'), 'KbArticlePage')
 
 // The login page pulls in three.js / react-three-fiber for its shader
 // background — lazy-load it so the dashboard bundle stays lean.
@@ -161,6 +163,8 @@ export function App() {
           <Route element={<BillingPage />} path="billing" />
           <Route element={<SupportPage />} path="support" />
           <Route element={<SslPage />} path="ssl" />
+          <Route element={<KbPage />} path="kb" />
+          <Route element={<KbArticlePage />} path="kb/:slug" />
         </Route>
         <Route
           element={
