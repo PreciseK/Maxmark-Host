@@ -30,3 +30,6 @@ dist-ssr
 .playwright-mcp/
 .worktrees/
 .gstack/
+
+# Supabase CLI scratch state (contains pooler URL / project ref)
+supabase/.temp/
