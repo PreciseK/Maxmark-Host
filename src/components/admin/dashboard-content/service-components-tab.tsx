@@ -103,6 +103,14 @@ export function ServiceComponentsTab() {
       setError('Name is required.')
       return
     }
+    if (form.name.trim().length > 80) {
+      setError('Name must be 80 characters or fewer.')
+      return
+    }
+    if (form.description.trim().length > 500) {
+      setError('Description must be 500 characters or fewer.')
+      return
+    }
     if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 999) {
       setError('Sort order must be a whole number between 0 and 999.')
       return
@@ -223,6 +231,7 @@ export function ServiceComponentsTab() {
                 <input
                   className={fieldInputClass}
                   id="component-name"
+                  maxLength={80}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   value={form.name}
                 />
@@ -232,6 +241,7 @@ export function ServiceComponentsTab() {
                 <textarea
                   className={fieldInputClass}
                   id="component-description"
+                  maxLength={500}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={3}
                   value={form.description}

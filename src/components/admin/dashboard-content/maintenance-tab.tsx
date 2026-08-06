@@ -107,6 +107,14 @@ export function MaintenanceTab() {
       setError('Title and body are required.')
       return
     }
+    if (form.title.trim().length > 160) {
+      setError('Title must be 160 characters or fewer.')
+      return
+    }
+    if (form.body.trim().length > 2_000) {
+      setError('Body must be 2,000 characters or fewer.')
+      return
+    }
     if (!form.startsAt || !form.endsAt) {
       setError('Start and end times are required.')
       return
@@ -235,6 +243,7 @@ export function MaintenanceTab() {
                 <input
                   className={fieldInputClass}
                   id="window-title"
+                  maxLength={160}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   value={form.title}
                 />
@@ -244,6 +253,7 @@ export function MaintenanceTab() {
                 <textarea
                   className={fieldInputClass}
                   id="window-body"
+                  maxLength={2_000}
                   onChange={(e) => setForm({ ...form, body: e.target.value })}
                   rows={3}
                   value={form.body}

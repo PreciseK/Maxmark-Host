@@ -107,6 +107,14 @@ export function KbArticlesTab() {
       setError('Title, category, and body are required.')
       return
     }
+    if (form.title.trim().length > 160) {
+      setError('Title must be 160 characters or fewer.')
+      return
+    }
+    if (form.category.trim().length > 80) {
+      setError('Category must be 80 characters or fewer.')
+      return
+    }
     if (!SLUG_PATTERN.test(slug)) {
       setError('Slug must be lowercase letters, numbers, and single hyphens.')
       return
@@ -235,6 +243,7 @@ export function KbArticlesTab() {
                 <input
                   className={fieldInputClass}
                   id="article-title"
+                  maxLength={160}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   value={form.title}
                 />
@@ -256,6 +265,7 @@ export function KbArticlesTab() {
                 <input
                   className={fieldInputClass}
                   id="article-category"
+                  maxLength={80}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   value={form.category}
                 />
