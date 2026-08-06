@@ -106,8 +106,9 @@ supabase/functions/
 ├── provision-site/index.ts   # POST — provision a site for the JWT user
 └── verify-payment/index.ts   # POST — verify Paystack tx, record payment/licence
 
-migrations/
-└── 001_currency_and_node_slots.sql  # Upgrade path for pre-existing databases
+supabase/migrations/
+├── 00000000000000_schema.sql        # Baseline snapshot, sorts first on a new database
+└── <timestamp>_*.sql                # Ordered incremental migrations
 ```
 
 ---
@@ -500,7 +501,7 @@ RLS: customers select/insert/update only their own conversations (update exists 
 
 ### Realtime
 
-Both tables are added to the `supabase_realtime` publication (guarded in `schema.sql`); `postgres_changes` events are authorized per-socket against RLS. Channels (`src/lib/support-realtime.ts`): `support-conv-<id>` for an open thread, `support-user-badge-<uid>` for the customer badge, `support-admin-inbox` / `support-admin-badge` for the admin side. Because admin delivery of other users' rows depends on RLS-authorized sockets, the inbox also refetches every 15 s and on tab focus as a defensive fallback. Handlers dedupe inserts by message id against optimistic local sends.
+Both tables are added to the `supabase_realtime` publication (guarded in `supabase/migrations/00000000000000_schema.sql`); `postgres_changes` events are authorized per-socket against RLS. Channels (`src/lib/support-realtime.ts`): `support-conv-<id>` for an open thread, `support-user-badge-<uid>` for the customer badge, `support-admin-inbox` / `support-admin-badge` for the admin side. Because admin delivery of other users' rows depends on RLS-authorized sockets, the inbox also refetches every 15 s and on tab focus as a defensive fallback. Handlers dedupe inserts by message id against optimistic local sends.
 
 ### Demo mode
 
@@ -522,4 +523,4 @@ Both tables are added to the `supabase_realtime` publication (guarded in `schema
 
 **Server code never enters the client bundle.** Everything that touches `SUPABASE_SERVICE_ROLE_KEY`, `WHM_MASTER_TOKEN`, or `PAYSTACK_SECRET_KEY` lives under `supabase/functions/`, which is outside the Vite `src/` include.
 
-**Schema is idempotent.** `schema.sql` uses `if not exists` guards on all enum types and tables so it can be re-run safely against an existing database. `seed.sql` uses `on conflict do nothing` for the same reason.
+**Schema is idempotent.** `supabase/migrations/00000000000000_schema.sql` uses `if not exists` guards on all enum types and tables so it can be re-run safely against an existing database. `seed.sql` uses `on conflict do nothing` for the same reason.

@@ -122,7 +122,7 @@ end
 $$;
 
 -- Existing databases created before 'maintenance' existed get the value via
--- migrations/002_admin_roles.sql (alter type cannot live inside the do-block
+-- 20260701000200_admin_roles.sql (alter type cannot live inside the do-block
 -- above because the block runs in a single transaction).
 
 create or replace function public.set_updated_at()

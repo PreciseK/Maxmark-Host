@@ -1,5 +1,5 @@
 -- Maxmark Host — Demo Seed Data
--- Run after schema.sql.
+-- Run after the migrations in supabase/migrations/ (baseline: 00000000000000_schema.sql).
 -- Replace DEMO_USER_EMAIL with the email of your Supabase auth user.
 -- The seed is idempotent: re-running it is safe.
 

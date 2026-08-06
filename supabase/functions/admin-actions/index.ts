@@ -10,7 +10,7 @@
 //   4. Append a row to admin_audit_log.
 //
 // Admin READS of customer tables go straight through RLS from the browser
-// (see the "Admins can view …" policies in schema.sql) — they never pass
+// (see the "Admins can view …" policies in supabase/migrations/00000000000000_schema.sql) — they never pass
 // through here.
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'

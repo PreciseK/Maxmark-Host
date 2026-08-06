@@ -13,7 +13,7 @@ npm run dev
 
 ## Production deployment checklist
 
-1. Apply `schema.sql` to a new database, then apply every timestamped file in `migrations/` in filename order. Existing installations apply only migrations not yet recorded, including `20260731000800_production_hardening.sql`.
+1. Apply every file in `supabase/migrations/` in filename order — `supabase db push` does this for you. The all-zero-prefixed `00000000000000_schema.sql` sorts first and lays down the baseline schema for a new database. Existing installations apply only migrations not yet recorded, including `20260731000800_production_hardening.sql`.
 2. Seed the first administrator after that account signs in:
 
    ```sql

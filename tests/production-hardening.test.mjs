@@ -17,7 +17,7 @@ test('live configuration is fail-closed and demo mode is explicit', async () => 
 })
 
 test('payment settlement and commercial tables are server controlled', async () => {
-  const migration = await read('migrations/20260731000800_production_hardening.sql')
+  const migration = await read('supabase/migrations/20260731000800_production_hardening.sql')
   const webhook = await read('supabase/functions/paystack-webhook/index.ts')
   assert.match(migration, /create table if not exists public\.payment_intents/)
   assert.match(migration, /for update;/)
@@ -30,7 +30,7 @@ test('payment settlement and commercial tables are server controlled', async () 
 })
 
 test('site provisioning reserves plan and node capacity', async () => {
-  const migration = await read('migrations/20260731000800_production_hardening.sql')
+  const migration = await read('supabase/migrations/20260731000800_production_hardening.sql')
   const provisioner = await read('supabase/functions/_shared/provisioner.ts')
   assert.match(migration, /pg_advisory_xact_lock/)
   assert.match(migration, /Your hosting plan site limit has been reached/)

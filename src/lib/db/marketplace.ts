@@ -66,7 +66,7 @@ function mapDbPluginToMarketplacePlugin(row: DbPluginRow): MarketplacePlugin {
     // download_asset_path (the raw R2 key) is deliberately excluded from
     // fetchPlugins' select() so the customer-facing response never carries
     // it — has_download_asset is a server-computed boolean column instead
-    // (see migrations/006_marketplace_asset_flag.sql). A determined caller
+    // (see supabase/migrations/20260701000700_marketplace_asset_flag.sql). A determined caller
     // could still request download_asset_path directly via PostgREST (RLS
     // is row-level, not column-level); closing that fully needs a Postgres
     // column-grant restriction or a customer-safe view — not done here
