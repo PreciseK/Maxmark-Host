@@ -91,11 +91,65 @@ test('overallStatus reports the worst status present', () => {
   )
 })
 
+test('overallStatus severity chain: maintenance < degraded < partial_outage < major_outage', () => {
+  // maintenance < degraded
+  assert.equal(
+    overallStatus([component('maintenance'), component('degraded')]),
+    'degraded',
+  )
+  // maintenance < partial_outage
+  assert.equal(
+    overallStatus([component('maintenance'), component('partial_outage')]),
+    'partial_outage',
+  )
+  // maintenance < major_outage
+  assert.equal(
+    overallStatus([component('maintenance'), component('major_outage')]),
+    'major_outage',
+  )
+  // degraded < partial_outage
+  assert.equal(
+    overallStatus([component('degraded'), component('partial_outage')]),
+    'partial_outage',
+  )
+  // partial_outage < major_outage
+  assert.equal(
+    overallStatus([component('partial_outage'), component('major_outage')]),
+    'major_outage',
+  )
+})
+
 test('overallStatus treats an empty list as operational', () => {
   assert.equal(overallStatus([]), 'operational')
 })
 
 test('customer service component fetch filters to published rows', async () => {
   const source = await read('src/lib/db/service-status.ts')
-  assert.match(source, /\.eq\('published', true\)/)
+
+  // Extract fetchServiceComponents function body
+  const customerFetchMatch = source.match(
+    /export async function fetchServiceComponents[\s\S]*?^}/m
+  )
+  assert.ok(customerFetchMatch, 'fetchServiceComponents function not found')
+  const customerFetchBody = customerFetchMatch[0]
+
+  // Extract fetchAllServiceComponents function body
+  const adminFetchMatch = source.match(
+    /export async function fetchAllServiceComponents[\s\S]*?^}/m
+  )
+  assert.ok(adminFetchMatch, 'fetchAllServiceComponents function not found')
+  const adminFetchBody = adminFetchMatch[0]
+
+  // Verify published filter IS in fetchServiceComponents
+  assert.match(
+    customerFetchBody,
+    /\.eq\('published', true\)/,
+    'fetchServiceComponents must have published filter'
+  )
+
+  // Verify published filter is NOT in fetchAllServiceComponents
+  assert.ok(
+    !adminFetchBody.match(/\.eq\('published', true\)/),
+    'fetchAllServiceComponents must NOT have published filter'
+  )
 })
