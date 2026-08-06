@@ -1,5 +1,4 @@
 {
-  "cleanUrls": true,
   "headers": [
     {
       "source": "/(.*)",
@@ -30,7 +29,10 @@
     { "source": "/billing", "destination": "/app.html" },
     { "source": "/support", "destination": "/app.html" },
     { "source": "/ssl", "destination": "/app.html" },
+    { "source": "/kb", "destination": "/app.html" },
+    { "source": "/kb/:path*", "destination": "/app.html" },
     { "source": "/login", "destination": "/app.html" },
+    { "source": "/login/:path*", "destination": "/app.html" },
     { "source": "/admin", "destination": "/app.html" },
     { "source": "/admin/:path*", "destination": "/app.html" },
     { "source": "/legal/:path*", "destination": "/app.html" }
