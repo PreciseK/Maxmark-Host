@@ -266,3 +266,36 @@ test('kb article fetches filter to published rows in the right functions', async
     'fetchAllArticles must NOT have published filter'
   )
 })
+
+const CONTENT_ACTIONS = [
+  'upsert_service_component',
+  'delete_service_component',
+  'upsert_maintenance_window',
+  'delete_maintenance_window',
+  'upsert_kb_article',
+  'delete_kb_article',
+]
+
+test('every content mutation is an audited admin action', async () => {
+  const fn = await read('supabase/functions/admin-actions/index.ts')
+  for (const action of CONTENT_ACTIONS) {
+    assert.match(fn, new RegExp(`z\\.literal\\('${action}'\\)`), `${action} missing from schema`)
+    assert.match(fn, new RegExp(`case '${action}':`), `${action} missing from dispatch`)
+    assert.match(fn, new RegExp(`'${action}',`), `${action} missing from auditableActions`)
+  }
+})
+
+test('article input is bounded at the trust boundary', async () => {
+  const fn = await read('supabase/functions/admin-actions/index.ts')
+  // Slug reaches a route param, so restrict it to a safe shape.
+  assert.match(fn, /\^\[a-z0-9\]\+\(\?:-\[a-z0-9\]\+\)\*\$/)
+  // A runaway body would bloat every dashboard fetch.
+  assert.match(fn, /max\(50_000\)|max\(50000\)/)
+})
+
+test('the client bridge exposes the content actions', async () => {
+  const bridge = await read('src/lib/functions.ts')
+  for (const action of CONTENT_ACTIONS) {
+    assert.match(bridge, new RegExp(`'${action}'`), `${action} missing from AdminAction union`)
+  }
+})

@@ -101,6 +101,58 @@ const bodySchema = z.discriminatedUnion('action', [
     fileName: z.string().min(1).max(200),
     contentLength: z.number().int().positive().max(50 * 1024 * 1024),
   }),
+  z.object({
+    action: z.literal('upsert_service_component'),
+    id: z.string().uuid().optional(),
+    name: z.string().min(1).max(80),
+    description: z.string().max(500).default(''),
+    status: z.enum([
+      'operational',
+      'degraded',
+      'partial_outage',
+      'major_outage',
+      'maintenance',
+    ]),
+    sortOrder: z.number().int().min(0).max(999).default(0),
+    published: z.boolean().default(true),
+  }),
+  z.object({
+    action: z.literal('delete_service_component'),
+    id: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal('upsert_maintenance_window'),
+    id: z.string().uuid().optional(),
+    title: z.string().min(1).max(160),
+    body: z.string().min(1).max(2_000),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+    published: z.boolean().default(false),
+  }),
+  z.object({
+    action: z.literal('delete_maintenance_window'),
+    id: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal('upsert_kb_article'),
+    id: z.string().uuid().optional(),
+    // Reaches /kb/:slug as a route param, so restrict it to a safe shape.
+    slug: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    title: z.string().min(1).max(160),
+    category: z.string().min(1).max(80),
+    // Capped so a runaway paste cannot bloat every dashboard fetch.
+    bodyMarkdown: z.string().min(1).max(50_000),
+    sortOrder: z.number().int().min(0).max(999).default(0),
+    published: z.boolean().default(false),
+  }),
+  z.object({
+    action: z.literal('delete_kb_article'),
+    id: z.string().uuid(),
+  }),
 ])
 
 type ActionBody = z.infer<typeof bodySchema>
@@ -409,6 +461,110 @@ async function getPluginUploadUrl(
   return ok({ uploadUrl, key }, 'plugin', body.pluginId)
 }
 
+async function upsertServiceComponent(
+  admin: SupabaseClient,
+  body: Extract<ActionBody, { action: 'upsert_service_component' }>,
+): Promise<ActionOutcome> {
+  const row = {
+    name: body.name,
+    description: body.description,
+    status: body.status,
+    sort_order: body.sortOrder,
+    published: body.published,
+  }
+
+  const query = body.id
+    ? admin.from('service_components').update(row).eq('id', body.id)
+    : admin.from('service_components').insert(row)
+
+  const { data, error } = await query.select().single()
+  if (error) {
+    const status = error.message.includes('duplicate') ? 409 : 500
+    throw new ActionError(`Unable to save service component: ${error.message}`, status)
+  }
+
+  return ok(data, 'service_component', (data as { id: string }).id)
+}
+
+async function deleteServiceComponent(
+  admin: SupabaseClient,
+  body: Extract<ActionBody, { action: 'delete_service_component' }>,
+): Promise<ActionOutcome> {
+  const { error } = await admin.from('service_components').delete().eq('id', body.id)
+  if (error) throw new ActionError(`Unable to delete service component: ${error.message}`, 500)
+  return ok({ id: body.id }, 'service_component', body.id)
+}
+
+async function upsertMaintenanceWindow(
+  admin: SupabaseClient,
+  body: Extract<ActionBody, { action: 'upsert_maintenance_window' }>,
+): Promise<ActionOutcome> {
+  if (new Date(body.endsAt) <= new Date(body.startsAt)) {
+    throw new ActionError('The maintenance window must end after it starts', 400)
+  }
+
+  const row = {
+    title: body.title,
+    body: body.body,
+    starts_at: body.startsAt,
+    ends_at: body.endsAt,
+    published: body.published,
+  }
+
+  const query = body.id
+    ? admin.from('maintenance_windows').update(row).eq('id', body.id)
+    : admin.from('maintenance_windows').insert(row)
+
+  const { data, error } = await query.select().single()
+  if (error) throw new ActionError(`Unable to save maintenance window: ${error.message}`, 500)
+
+  return ok(data, 'maintenance_window', (data as { id: string }).id)
+}
+
+async function deleteMaintenanceWindow(
+  admin: SupabaseClient,
+  body: Extract<ActionBody, { action: 'delete_maintenance_window' }>,
+): Promise<ActionOutcome> {
+  const { error } = await admin.from('maintenance_windows').delete().eq('id', body.id)
+  if (error) throw new ActionError(`Unable to delete maintenance window: ${error.message}`, 500)
+  return ok({ id: body.id }, 'maintenance_window', body.id)
+}
+
+async function upsertKbArticle(
+  admin: SupabaseClient,
+  body: Extract<ActionBody, { action: 'upsert_kb_article' }>,
+): Promise<ActionOutcome> {
+  const row = {
+    slug: body.slug,
+    title: body.title,
+    category: body.category,
+    body_markdown: body.bodyMarkdown,
+    sort_order: body.sortOrder,
+    published: body.published,
+  }
+
+  const query = body.id
+    ? admin.from('kb_articles').update(row).eq('id', body.id)
+    : admin.from('kb_articles').insert(row)
+
+  const { data, error } = await query.select().single()
+  if (error) {
+    const status = error.message.includes('duplicate') ? 409 : 500
+    throw new ActionError(`Unable to save article: ${error.message}`, status)
+  }
+
+  return ok(data, 'kb_article', (data as { id: string }).id)
+}
+
+async function deleteKbArticle(
+  admin: SupabaseClient,
+  body: Extract<ActionBody, { action: 'delete_kb_article' }>,
+): Promise<ActionOutcome> {
+  const { error } = await admin.from('kb_articles').delete().eq('id', body.id)
+  if (error) throw new ActionError(`Unable to delete article: ${error.message}`, 500)
+  return ok({ id: body.id }, 'kb_article', body.id)
+}
+
 // Reads are exempt from the audit log.
 const auditableActions = new Set<ActionBody['action']>([
   'adjust_credit',
@@ -421,6 +577,12 @@ const auditableActions = new Set<ActionBody['action']>([
   'set_purchase_status',
   'set_conversation_status',
   'get_plugin_upload_url',
+  'upsert_service_component',
+  'delete_service_component',
+  'upsert_maintenance_window',
+  'delete_maintenance_window',
+  'upsert_kb_article',
+  'delete_kb_article',
 ])
 
 Deno.serve(async (request) => {
@@ -515,6 +677,24 @@ Deno.serve(async (request) => {
         break
       case 'get_plugin_upload_url':
         outcome = await getPluginUploadUrl(body)
+        break
+      case 'upsert_service_component':
+        outcome = await upsertServiceComponent(admin, body)
+        break
+      case 'delete_service_component':
+        outcome = await deleteServiceComponent(admin, body)
+        break
+      case 'upsert_maintenance_window':
+        outcome = await upsertMaintenanceWindow(admin, body)
+        break
+      case 'delete_maintenance_window':
+        outcome = await deleteMaintenanceWindow(admin, body)
+        break
+      case 'upsert_kb_article':
+        outcome = await upsertKbArticle(admin, body)
+        break
+      case 'delete_kb_article':
+        outcome = await deleteKbArticle(admin, body)
         break
     }
   } catch (error) {

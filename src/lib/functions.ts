@@ -147,6 +147,37 @@ export type AdminAction =
       fileName: string
       contentLength: number
     }
+  | {
+      action: 'upsert_service_component'
+      id?: string
+      name: string
+      description: string
+      status: 'operational' | 'degraded' | 'partial_outage' | 'major_outage' | 'maintenance'
+      sortOrder: number
+      published: boolean
+    }
+  | { action: 'delete_service_component'; id: string }
+  | {
+      action: 'upsert_maintenance_window'
+      id?: string
+      title: string
+      body: string
+      startsAt: string
+      endsAt: string
+      published: boolean
+    }
+  | { action: 'delete_maintenance_window'; id: string }
+  | {
+      action: 'upsert_kb_article'
+      id?: string
+      slug: string
+      title: string
+      category: string
+      bodyMarkdown: string
+      sortOrder: number
+      published: boolean
+    }
+  | { action: 'delete_kb_article'; id: string }
 
 export function adminAction<T>(supabase: SupabaseClient, body: AdminAction): Promise<T> {
   return invoke<T>(supabase, 'admin-actions', body as unknown as Record<string, unknown>)
