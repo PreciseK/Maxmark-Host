@@ -13,6 +13,13 @@ import {
 } from 'lucide-react'
 
 import { fetchBillingData, type BillingData } from '@/lib/db/billing'
+import {
+  SERVICE_STATUS_LABELS,
+  fetchServiceComponents,
+  overallStatus,
+  type ServiceComponent,
+  type ServiceStatus,
+} from '@/lib/db/service-status'
 import { fetchSites } from '@/lib/db/sites'
 import { fetchConversations } from '@/lib/db/support'
 import { supabase } from '@/lib/supabase'
@@ -25,22 +32,57 @@ import {
   CardSkeleton,
 } from '@/components/ui/ui-states'
 
+const STATUS_DOT: Record<ServiceStatus, string> = {
+  operational: 'bg-emerald-500',
+  maintenance: 'bg-sky-500',
+  degraded: 'bg-amber-500',
+  partial_outage: 'bg-orange-500',
+  major_outage: 'bg-red-500',
+}
+
+const STATUS_BANNER: Record<ServiceStatus, string> = {
+  operational: 'text-emerald-500',
+  maintenance: 'text-sky-400',
+  degraded: 'text-amber-400',
+  partial_outage: 'text-orange-400',
+  major_outage: 'text-red-400',
+}
+
 // Reusable Status Widget Component
 export function StatusWidget() {
   const [openSection, setOpenSection] = useState<string | null>(null)
+  const [components, setComponents] = useState<ServiceComponent[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const sections = [
-    { id: 'support', name: 'Support Services', status: 'Operational' },
-    { id: 'platform', name: 'Platform Operations', status: 'Operational' },
-    { id: 'wordpress', name: 'Managed WordPress', status: 'Operational' },
-    { id: 'cloud', name: 'Maxmark Cloud', status: 'Operational' },
-    { id: 'container', name: 'Cloud Container Services', status: 'Operational' },
-    { id: 'network', name: 'Data Centers & Network', status: 'Operational' },
-  ]
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    fetchServiceComponents(supabase)
+      .then((rows) => {
+        if (!cancelled) setComponents(rows)
+      })
+      .catch((error: unknown) => {
+        console.warn('Service status fetch failed:', error)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const toggleSection = (id: string) => {
     setOpenSection(openSection === id ? null : id)
   }
+
+  const overall = overallStatus(components)
+  const bannerLabel =
+    overall === 'operational' ? 'All Systems Operational' : SERVICE_STATUS_LABELS[overall]
 
   return (
     <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
@@ -51,39 +93,54 @@ export function StatusWidget() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 bg-[#121214] border border-[#232328] rounded-md p-3">
-        <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-        <span className="text-xs font-medium text-emerald-500">All Systems Operational</span>
-      </div>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading status…</p>
+      ) : components.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No service components are being tracked.</p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 bg-[#121214] border border-[#232328] rounded-md p-3">
+            {overall === 'operational' ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+            ) : (
+              <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${STATUS_DOT[overall]}`} />
+            )}
+            <span className={`text-xs font-medium ${STATUS_BANNER[overall]}`}>{bannerLabel}</span>
+          </div>
 
-      <div className="divide-y divide-[#232328]">
-        {sections.map((sec) => {
-          const isOpen = openSection === sec.id
-          return (
-            <div className="py-2.5 first:pt-0 last:pb-0" key={sec.id}>
-              <button
-                className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-white transition-colors py-1"
-                onClick={() => toggleSection(sec.id)}
-              >
-                <span>{sec.name}</span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <div className="divide-y divide-[#232328]">
+            {components.map((component) => {
+              const isOpen = openSection === component.id
+              return (
+                <div className="py-2.5 first:pt-0 last:pb-0" key={component.id}>
+                  <button
+                    className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-white transition-colors py-1"
+                    onClick={() => toggleSection(component.id)}
+                  >
+                    <span>{component.name}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[component.status]}`} />
+                      {isOpen ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </span>
+                  </button>
                   {isOpen ? (
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  )}
-                </span>
-              </button>
-              {isOpen ? (
-                <div className="mt-2 pl-2 text-[11px] text-muted-foreground bg-[#121214] p-2 rounded border border-[#232328]">
-                  All components under {sec.name} are fully operational with normal latency levels.
+                    <div className="mt-2 pl-2 text-[11px] text-muted-foreground bg-[#121214] p-2 rounded border border-[#232328]">
+                      <span className="block font-semibold text-white/80">
+                        {SERVICE_STATUS_LABELS[component.status]}
+                      </span>
+                      {component.description}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }
