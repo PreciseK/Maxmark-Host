@@ -153,3 +153,80 @@ test('customer service component fetch filters to published rows', async () => {
     'fetchAllServiceComponents must NOT have published filter'
   )
 })
+
+import { deriveWindowState } from '../src/lib/db/maintenance.ts'
+
+// Named to avoid shadowing the global `window`.
+const maintenanceWindow = () => ({
+  id: 'w1',
+  title: 'Network upgrade',
+  body: 'Routing hardware refresh.',
+  startsAt: '2026-08-10T09:00:00Z',
+  endsAt: '2026-08-10T11:00:00Z',
+  published: true,
+  createdAt: '2026-08-06T00:00:00Z',
+})
+
+test('deriveWindowState reports scheduled before the window opens', () => {
+  assert.equal(
+    deriveWindowState(maintenanceWindow(), new Date('2026-08-10T08:59:59Z')),
+    'scheduled',
+  )
+})
+
+test('deriveWindowState reports in_progress on both boundaries and between', () => {
+  for (const at of ['2026-08-10T09:00:00Z', '2026-08-10T10:00:00Z', '2026-08-10T11:00:00Z']) {
+    assert.equal(deriveWindowState(maintenanceWindow(), new Date(at)), 'in_progress', at)
+  }
+})
+
+test('deriveWindowState reports completed after the window closes', () => {
+  assert.equal(
+    deriveWindowState(maintenanceWindow(), new Date('2026-08-10T11:00:01Z')),
+    'completed',
+  )
+})
+
+test('customer maintenance fetch filters published and ages out finished windows', async () => {
+  const source = await read('src/lib/db/maintenance.ts')
+
+  // Extract fetchActiveMaintenanceWindows function body
+  const customerFetchMatch = source.match(
+    /export async function fetchActiveMaintenanceWindows[\s\S]*?^}/m
+  )
+  assert.ok(customerFetchMatch, 'fetchActiveMaintenanceWindows function not found')
+  const customerFetchBody = customerFetchMatch[0]
+
+  // Extract fetchAllMaintenanceWindows function body
+  const adminFetchMatch = source.match(
+    /export async function fetchAllMaintenanceWindows[\s\S]*?^}/m
+  )
+  assert.ok(adminFetchMatch, 'fetchAllMaintenanceWindows function not found')
+  const adminFetchBody = adminFetchMatch[0]
+
+  // Verify published filter IS in fetchActiveMaintenanceWindows
+  assert.match(
+    customerFetchBody,
+    /\.eq\('published', true\)/,
+    'fetchActiveMaintenanceWindows must have published filter'
+  )
+
+  // Verify published filter is NOT in fetchAllMaintenanceWindows
+  assert.ok(
+    !adminFetchBody.match(/\.eq\('published', true\)/),
+    'fetchAllMaintenanceWindows must NOT have published filter'
+  )
+
+  // Verify gt cutoff IS in fetchActiveMaintenanceWindows
+  assert.match(
+    customerFetchBody,
+    /\.gt\('ends_at'/,
+    'fetchActiveMaintenanceWindows must have ends_at cutoff filter'
+  )
+
+  // Verify gt cutoff is NOT in fetchAllMaintenanceWindows
+  assert.ok(
+    !adminFetchBody.match(/\.gt\('ends_at'/),
+    'fetchAllMaintenanceWindows must NOT have ends_at cutoff filter'
+  )
+})
