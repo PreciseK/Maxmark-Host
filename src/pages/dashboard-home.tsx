@@ -14,6 +14,13 @@ import {
 
 import { fetchBillingData, type BillingData } from '@/lib/db/billing'
 import {
+  MAINTENANCE_STATE_LABELS,
+  deriveWindowState,
+  fetchActiveMaintenanceWindows,
+  type MaintenanceState,
+  type MaintenanceWindow,
+} from '@/lib/db/maintenance'
+import {
   SERVICE_STATUS_LABELS,
   fetchServiceComponents,
   overallStatus,
@@ -53,6 +60,7 @@ export function StatusWidget() {
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [components, setComponents] = useState<ServiceComponent[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (!supabase) {
@@ -66,6 +74,7 @@ export function StatusWidget() {
       })
       .catch((error: unknown) => {
         console.warn('Service status fetch failed:', error)
+        if (!cancelled) setLoadError(true)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -95,6 +104,8 @@ export function StatusWidget() {
 
       {loading ? (
         <p className="text-xs text-muted-foreground">Loading status…</p>
+      ) : loadError ? (
+        <p className="text-xs text-red-400">Status could not be loaded.</p>
       ) : components.length === 0 ? (
         <p className="text-xs text-muted-foreground">No service components are being tracked.</p>
       ) : (
@@ -145,8 +156,52 @@ export function StatusWidget() {
   )
 }
 
+const MAINTENANCE_TONE: Record<MaintenanceState, string> = {
+  scheduled: 'text-amber-500',
+  in_progress: 'text-sky-400',
+  completed: 'text-emerald-500',
+}
+
+const windowFmt = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+})
+
 // Reusable Scheduled Maintenance Component
 export function ScheduledMaintenanceWidget() {
+  const [windows, setWindows] = useState<MaintenanceWindow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    fetchActiveMaintenanceWindows(supabase)
+      .then((rows) => {
+        if (!cancelled) setWindows(rows)
+      })
+      .catch((error: unknown) => {
+        console.warn('Maintenance window fetch failed:', error)
+        if (!cancelled) setLoadError(true)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const now = new Date()
+
   return (
     <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -156,23 +211,35 @@ export function ScheduledMaintenanceWidget() {
         </Link>
       </div>
 
-      <div className="space-y-3">
-        <div className="p-3 bg-[#121214] border border-[#232328] rounded-md">
-          <Link className="text-xs font-semibold text-white hover:text-[#5c4df0] underline transition-colors" to="/support">
-            Scheduled Maintenance - Subset of Cloudhosts on US-Midwest-1 & US-West-1
-          </Link>
-          <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-            <span className="font-semibold text-amber-500 uppercase tracking-wider text-[9px] block mb-1">
-              Scheduled
-            </span>
-            Maxmark systems engineers will be performing scheduled maintenance on the underlying
-            hardware supporting servers.
-          </p>
-          <div className="text-[10px] text-muted-foreground/80 mt-3 pt-2 border-t border-[#232328]">
-            Scheduled for Apr 1, 2026 9:00 AM - Apr 1, 2026 11:00 AM
-          </div>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading maintenance…</p>
+      ) : loadError ? (
+        <p className="text-xs text-red-400">Maintenance schedule could not be loaded.</p>
+      ) : windows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No maintenance is scheduled.</p>
+      ) : (
+        <div className="space-y-3">
+          {windows.map((item) => {
+            const state = deriveWindowState(item, now)
+            return (
+              <div className="p-3 bg-[#121214] border border-[#232328] rounded-md" key={item.id}>
+                <span className="text-xs font-semibold text-white">{item.title}</span>
+                <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                  <span
+                    className={`font-semibold uppercase tracking-wider text-[9px] block mb-1 ${MAINTENANCE_TONE[state]}`}
+                  >
+                    {MAINTENANCE_STATE_LABELS[state]}
+                  </span>
+                  {item.body}
+                </p>
+                <div className="text-[10px] text-muted-foreground/80 mt-3 pt-2 border-t border-[#232328]">
+                  {windowFmt.format(new Date(item.startsAt))} — {windowFmt.format(new Date(item.endsAt))}
+                </div>
+              </div>
+            )
+          })}
         </div>
-      </div>
+      )}
     </div>
   )
 }
