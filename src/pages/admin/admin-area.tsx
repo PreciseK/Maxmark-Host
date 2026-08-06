@@ -6,6 +6,7 @@ import { AdminOverview } from '@/pages/admin/admin-overview'
 import { AdminAudit } from '@/pages/admin/admin-audit'
 import { AdminBilling } from '@/pages/admin/admin-billing'
 import { AdminCatalog } from '@/pages/admin/admin-catalog'
+import { AdminDashboardContent } from '@/pages/admin/admin-dashboard-content'
 import { AdminMarketplace } from '@/pages/admin/admin-marketplace'
 import { AdminNodes } from '@/pages/admin/admin-nodes'
 import { AdminSites } from '@/pages/admin/admin-sites'
@@ -31,6 +32,7 @@ export function AdminArea() {
           <Route element={<AdminMarketplace />} path="marketplace" />
           <Route element={<AdminSupport />} path="support" />
           <Route element={<AdminCatalog />} path="catalog" />
+          <Route element={<AdminDashboardContent />} path="content" />
           <Route element={<AdminAudit />} path="audit" />
           <Route element={<Navigate replace to="/admin" />} path="*" />
         </Route>

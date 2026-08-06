@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
   ArrowLeft,
   CircleDollarSign,
+  FileText,
   Globe2,
   Layers,
   LayoutDashboard,
@@ -29,6 +30,7 @@ const adminNavItems = [
   { label: 'Marketplace', href: '/admin/marketplace', icon: Store },
   { label: 'Support', href: '/admin/support', icon: MessageSquare },
   { label: 'Catalog', href: '/admin/catalog', icon: Layers },
+  { label: 'Dashboard Content', href: '/admin/content', icon: FileText },
   { label: 'Audit Log', href: '/admin/audit', icon: ScrollText },
 ]
 
