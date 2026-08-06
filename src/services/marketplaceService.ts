@@ -102,9 +102,11 @@ export async function acquireItem(
       data: { session },
     } = await sb.auth.getSession()
 
-    if (session) {
-      return claimMarketplaceItem(sb, item.id)
+    if (!session) {
+      throw new Error('You must be signed in to claim marketplace items.')
     }
+
+    return claimMarketplaceItem(sb, item.id)
   }
 
   return claimMockItem(item)

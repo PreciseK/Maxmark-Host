@@ -86,6 +86,7 @@ export function EmptyRow({ colSpan, message }: { colSpan: number; message: strin
 }
 
 // Class recipes shared by admin tables, forms, and dialogs.
+export const adminCardClass = 'bg-[#161619] border border-[#232328] rounded-lg overflow-hidden flex flex-col justify-between'
 export const tableClass = 'w-full text-left border-collapse'
 export const theadRowClass =
   'border-b border-[#232328] text-xs text-muted-foreground bg-[#121214]'

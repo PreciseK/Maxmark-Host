@@ -1,15 +1,20 @@
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
+  Activity,
   ArrowLeft,
+  Bell,
   CircleDollarSign,
+  Database,
   FileText,
+  Globe,
   Globe2,
   Layers,
   LayoutDashboard,
   MessageSquare,
   ScrollText,
   Server,
+  ShieldAlert,
   ShieldCheck,
   Store,
   Users,
@@ -23,12 +28,17 @@ import { supabase } from '@/lib/supabase'
 
 const adminNavItems = [
   { label: 'Overview', href: '/admin', icon: LayoutDashboard, end: true },
+  { label: 'System Health', href: '/admin/system', icon: Activity },
   { label: 'Users', href: '/admin/users', icon: Users },
   { label: 'Sites', href: '/admin/sites', icon: Globe2 },
+  { label: 'Domains & DNS', href: '/admin/domains', icon: Globe },
   { label: 'Nodes', href: '/admin/nodes', icon: Server },
   { label: 'Billing', href: '/admin/billing', icon: CircleDollarSign },
   { label: 'Marketplace', href: '/admin/marketplace', icon: Store },
   { label: 'Support', href: '/admin/support', icon: MessageSquare },
+  { label: 'Broadcasts & Emails', href: '/admin/notifications', icon: Bell },
+  { label: 'Global Backups', href: '/admin/backups', icon: Database },
+  { label: 'Security & Firewall', href: '/admin/security', icon: ShieldAlert },
   { label: 'Catalog', href: '/admin/catalog', icon: Layers },
   { label: 'Dashboard Content', href: '/admin/content', icon: FileText },
   { label: 'Audit Log', href: '/admin/audit', icon: ScrollText },

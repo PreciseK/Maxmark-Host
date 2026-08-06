@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpDown, ChevronLeft, Plus } from 'lucide-react'
+import { ArrowUpDown, ChevronLeft, MessageSquare, Plus } from 'lucide-react'
 
 import { useSupportChat } from '@/hooks/use-support-chat'
 import type { ConversationStatus } from '@/lib/db/support'
@@ -23,6 +23,7 @@ import {
   secondaryButtonClass,
   type BadgeTone,
 } from '@/components/admin/admin-ui'
+import { EmptyState, ErrorState } from '@/components/ui/ui-states'
 
 import { ScheduledMaintenanceWidget, StatusWidget } from './dashboard-home'
 
@@ -50,7 +51,7 @@ export function SupportPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-left">
       {/* Breadcrumbs */}
       <div className="text-xs text-muted-foreground">
         <Link className="hover:text-white transition" to="/home">
@@ -63,18 +64,27 @@ export function SupportPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Cases</h1>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded-md text-xs font-semibold border border-[#2d2d34] transition">
+          <button className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] rounded-md text-xs font-semibold border border-[#2d2d34] transition text-white" type="button">
             Request Migration
           </button>
           <button
             className="flex items-center gap-1.5 px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded-md text-xs font-semibold text-white transition"
             onClick={() => setDialogOpen(true)}
+            type="button"
           >
             <Plus className="h-4 w-4" />
             Open Case
           </button>
         </div>
       </div>
+
+      {chat.error ? (
+        <ErrorState
+          title="Support Error"
+          message="We encountered an issue communicating with support services."
+          error={chat.error}
+        />
+      ) : null}
 
       {/* Main Grid */}
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
@@ -86,6 +96,7 @@ export function SupportPage() {
                 aria-label="Back to cases"
                 className="text-muted-foreground hover:text-white transition"
                 onClick={chat.closeConversation}
+                type="button"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -121,84 +132,90 @@ export function SupportPage() {
           <div className="bg-[#161619] border border-[#232328] rounded-lg overflow-hidden flex flex-col justify-between">
             <div>
               <div className="px-5 py-4 border-b border-[#232328]">
-                <h3 className="text-sm font-semibold text-white">Cases</h3>
+                <h3 className="text-sm font-semibold text-white">Support Cases</h3>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#232328] text-xs text-muted-foreground bg-[#121214]">
-                      <th className="px-5 py-3 font-semibold w-[120px]">
-                        <button className="flex items-center gap-1.5 hover:text-white transition">
-                          Case ID
-                          <ArrowUpDown className="h-3 w-3" />
-                        </button>
-                      </th>
-                      <th className="px-5 py-3 font-semibold">
-                        <button className="flex items-center gap-1.5 hover:text-white transition">
-                          Subject
-                          <ArrowUpDown className="h-3 w-3" />
-                        </button>
-                      </th>
-                      <th className="px-5 py-3 font-semibold w-[100px]">
-                        <button className="flex items-center gap-1.5 hover:text-white transition">
-                          Status
-                          <ArrowUpDown className="h-3 w-3" />
-                        </button>
-                      </th>
-                      <th className="px-5 py-3 font-semibold w-[180px]">
-                        <button className="flex items-center gap-1.5 hover:text-white transition">
-                          Updated
-                          <ArrowUpDown className="h-3 w-3" />
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#232328] text-xs text-white">
-                    {chat.conversations.map((conversation) => (
-                      <tr
-                        className="hover:bg-[#1c1c20] transition cursor-pointer"
-                        key={conversation.id}
-                        onClick={() => chat.openConversation(conversation.id)}
-                      >
-                        <td className="px-5 py-4 font-semibold underline text-muted-foreground hover:text-white font-mono">
-                          {conversation.id.slice(0, 8)}
-                        </td>
-                        <td className="px-5 py-4 max-w-[280px]">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate" title={conversation.subject}>
-                              {conversation.subject}
-                            </span>
-                            {conversation.userUnreadCount > 0 ? (
-                              <span className="bg-[#5c4df0] text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white shrink-0">
-                                {conversation.userUnreadCount}
+              {chat.conversations.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState
+                    badge="24/7 Technical Support"
+                    icon={<MessageSquare className="h-7 w-7 text-violet-400" />}
+                    title="No Open Cases"
+                    description="Have a question about your site, DNS, or billing? Open a support case and our engineering team will assist."
+                    actionLabel="Open Case"
+                    onAction={() => setDialogOpen(true)}
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#232328] text-xs text-muted-foreground bg-[#121214]">
+                        <th className="px-5 py-3 font-semibold w-[120px]">
+                          <button className="flex items-center gap-1.5 hover:text-white transition">
+                            Case ID
+                            <ArrowUpDown className="h-3 w-3" />
+                          </button>
+                        </th>
+                        <th className="px-5 py-3 font-semibold">
+                          <button className="flex items-center gap-1.5 hover:text-white transition">
+                            Subject
+                            <ArrowUpDown className="h-3 w-3" />
+                          </button>
+                        </th>
+                        <th className="px-5 py-3 font-semibold w-[100px]">
+                          <button className="flex items-center gap-1.5 hover:text-white transition">
+                            Status
+                            <ArrowUpDown className="h-3 w-3" />
+                          </button>
+                        </th>
+                        <th className="px-5 py-3 font-semibold w-[180px]">
+                          <button className="flex items-center gap-1.5 hover:text-white transition">
+                            Updated
+                            <ArrowUpDown className="h-3 w-3" />
+                          </button>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#232328] text-xs text-white">
+                      {chat.conversations.map((conversation) => (
+                        <tr
+                          className="hover:bg-[#1c1c20] transition cursor-pointer"
+                          key={conversation.id}
+                          onClick={() => chat.openConversation(conversation.id)}
+                        >
+                          <td className="px-5 py-4 font-semibold underline text-muted-foreground hover:text-white font-mono">
+                            {conversation.id.slice(0, 8)}
+                          </td>
+                          <td className="px-5 py-4 max-w-[280px]">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate" title={conversation.subject}>
+                                {conversation.subject}
                               </span>
-                            ) : null}
-                          </div>
-                          <p className="text-muted-foreground truncate mt-0.5">
-                            {conversation.lastMessagePreview}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <StatusBadge tone={statusTone[conversation.status]}>
-                            {conversation.status}
-                          </StatusBadge>
-                        </td>
-                        <td className="px-5 py-4 text-muted-foreground">
-                          {formatDateLabel(conversation.lastMessageAt)}
-                        </td>
-                      </tr>
-                    ))}
-                    {chat.conversations.length === 0 ? (
-                      <tr>
-                        <td className="px-5 py-10 text-center text-muted-foreground" colSpan={4}>
-                          No cases yet. Open one and our team will jump in.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
+                              {conversation.userUnreadCount > 0 ? (
+                                <span className="bg-[#5c4df0] text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white shrink-0">
+                                  {conversation.userUnreadCount}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-muted-foreground truncate mt-0.5">
+                              {conversation.lastMessagePreview}
+                            </p>
+                          </td>
+                          <td className="px-5 py-4">
+                            <StatusBadge tone={statusTone[conversation.status]}>
+                              {conversation.status}
+                            </StatusBadge>
+                          </td>
+                          <td className="px-5 py-4 text-muted-foreground">
+                            {formatDateLabel(conversation.lastMessageAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Table Footer */}
@@ -258,13 +275,14 @@ export function SupportPage() {
             {chat.error ? <p className="text-[11px] text-red-400">{chat.error}</p> : null}
           </div>
           <DialogFooter>
-            <button className={secondaryButtonClass} onClick={() => setDialogOpen(false)}>
+            <button className={secondaryButtonClass} onClick={() => setDialogOpen(false)} type="button">
               Cancel
             </button>
             <button
               className={primaryButtonClass}
               disabled={chat.sending || !subject.trim() || !firstMessage.trim()}
               onClick={() => void handleCreate()}
+              type="button"
             >
               {chat.sending ? 'Opening…' : 'Open case'}
             </button>

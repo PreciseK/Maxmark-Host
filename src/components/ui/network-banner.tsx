@@ -1,24 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Wifi, WifiOff, ZapOff } from 'lucide-react'
 import { useNetworkStatus } from '@/hooks/use-network-status'
 
 export function NetworkBanner() {
   const { isOnline, isSlowConnection } = useNetworkStatus()
-  const [wasOffline, setWasOffline] = useState(false)
+  const prevOnlineRef = useRef(isOnline)
   const [showReconnected, setShowReconnected] = useState(false)
 
   useEffect(() => {
     if (!isOnline) {
-      setWasOffline(true)
-    } else if (wasOffline) {
-      setShowReconnected(true)
-      const timer = setTimeout(() => {
+      prevOnlineRef.current = false
+    } else if (!prevOnlineRef.current) {
+      prevOnlineRef.current = true
+      const showTimer = setTimeout(() => {
+        setShowReconnected(true)
+      }, 0)
+      const hideTimer = setTimeout(() => {
         setShowReconnected(false)
-        setWasOffline(false)
       }, 4000)
-      return () => clearTimeout(timer)
+
+      return () => {
+        clearTimeout(showTimer)
+        clearTimeout(hideTimer)
+      }
     }
-  }, [isOnline, wasOffline])
+  }, [isOnline])
 
   if (!isOnline) {
     return (
