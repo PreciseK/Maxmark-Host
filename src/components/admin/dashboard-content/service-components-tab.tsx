@@ -103,8 +103,8 @@ export function ServiceComponentsTab() {
       setError('Name is required.')
       return
     }
-    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
-      setError('Sort order must be a whole number of 0 or more.')
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 999) {
+      setError('Sort order must be a whole number between 0 and 999.')
       return
     }
 
