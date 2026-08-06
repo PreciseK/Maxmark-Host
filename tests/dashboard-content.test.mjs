@@ -230,3 +230,39 @@ test('customer maintenance fetch filters published and ages out finished windows
     'fetchAllMaintenanceWindows must NOT have ends_at cutoff filter'
   )
 })
+
+test('kb article fetches filter to published rows in the right functions', async () => {
+  const source = await read('src/lib/db/kb.ts')
+
+  const listFetchMatch = source.match(/export async function fetchPublishedArticles[\s\S]*?^}/m)
+  assert.ok(listFetchMatch, 'fetchPublishedArticles function not found')
+  const listFetchBody = listFetchMatch[0]
+
+  const bySlugFetchMatch = source.match(/export async function fetchArticleBySlug[\s\S]*?^}/m)
+  assert.ok(bySlugFetchMatch, 'fetchArticleBySlug function not found')
+  const bySlugFetchBody = bySlugFetchMatch[0]
+
+  const adminFetchMatch = source.match(/export async function fetchAllArticles[\s\S]*?^}/m)
+  assert.ok(adminFetchMatch, 'fetchAllArticles function not found')
+  const adminFetchBody = adminFetchMatch[0]
+
+  // A draft must not become readable by guessing its slug, so both customer
+  // paths (list and by-slug) must filter to published rows.
+  assert.match(
+    listFetchBody,
+    /\.eq\('published', true\)/,
+    'fetchPublishedArticles must have published filter'
+  )
+  assert.match(
+    bySlugFetchBody,
+    /\.eq\('published', true\)/,
+    'fetchArticleBySlug must have published filter'
+  )
+  assert.match(bySlugFetchBody, /\.maybeSingle\(\)/, 'fetchArticleBySlug must use maybeSingle')
+
+  // The admin path must see drafts, so it must NOT carry the published filter.
+  assert.ok(
+    !adminFetchBody.match(/\.eq\('published', true\)/),
+    'fetchAllArticles must NOT have published filter'
+  )
+})
