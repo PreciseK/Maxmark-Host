@@ -59,3 +59,43 @@ test('seeded service components are idempotent and match the shipped widget', as
   }
   assert.match(sql, /on conflict \(name\) do nothing/)
 })
+
+import { overallStatus } from '../src/lib/db/service-status.ts'
+
+const component = (status) => ({
+  id: status,
+  name: status,
+  description: '',
+  status,
+  sortOrder: 0,
+  published: true,
+  createdAt: '2026-08-06T00:00:00Z',
+})
+
+test('overallStatus reports operational only when every component is operational', () => {
+  assert.equal(overallStatus([component('operational'), component('operational')]), 'operational')
+})
+
+test('overallStatus reports the worst status present', () => {
+  assert.equal(
+    overallStatus([component('operational'), component('degraded'), component('major_outage')]),
+    'major_outage',
+  )
+  assert.equal(
+    overallStatus([component('operational'), component('maintenance')]),
+    'maintenance',
+  )
+  assert.equal(
+    overallStatus([component('degraded'), component('partial_outage')]),
+    'partial_outage',
+  )
+})
+
+test('overallStatus treats an empty list as operational', () => {
+  assert.equal(overallStatus([]), 'operational')
+})
+
+test('customer service component fetch filters to published rows', async () => {
+  const source = await read('src/lib/db/service-status.ts')
+  assert.match(source, /\.eq\('published', true\)/)
+})
