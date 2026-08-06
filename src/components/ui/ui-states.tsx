@@ -185,6 +185,8 @@ export interface ErrorStateProps {
   message?: string
   error?: Error | string | null
   onRetry?: () => void
+  secondaryActionLabel?: string
+  secondaryActionLink?: string
   className?: string
 }
 
@@ -193,6 +195,8 @@ export function ErrorState({
   message = 'We ran into an issue while processing your request. Please try again.',
   error,
   onRetry,
+  secondaryActionLabel,
+  secondaryActionLink,
   className = '',
 }: ErrorStateProps) {
   const [showDetails, setShowDetails] = useState(false)
@@ -241,13 +245,23 @@ export function ErrorState({
           </button>
         ) : null}
 
-        <Link
-          to="/support"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
-        >
-          <HelpCircle className="h-4 w-4" />
-          Contact Support
-        </Link>
+        {secondaryActionLabel && secondaryActionLink ? (
+          <Link
+            to={secondaryActionLink}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {secondaryActionLabel}
+          </Link>
+        ) : (
+          <Link
+            to="/support"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+          >
+            <HelpCircle className="h-4 w-4" />
+            Contact Support
+          </Link>
+        )}
       </div>
     </div>
   )
