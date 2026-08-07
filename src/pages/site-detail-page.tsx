@@ -21,6 +21,7 @@ import {
 
 import { MetricChart } from '@/components/site/metric-chart'
 import { SettingToggle } from '@/components/site/setting-toggle'
+import { WordPressLogo } from '@/components/icons/wordpress-logo'
 import { useSiteResources } from '@/hooks/use-site-resources'
 import { fetchBackupLogs, type BackupLog } from '@/lib/db/backup-logs'
 import { latestByMetric } from '@/lib/db/analytics'
@@ -309,7 +310,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               title="Open WordPress Admin Dashboard"
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0073aa] hover:bg-[#005177] text-white text-xs font-semibold transition shadow"
             >
-              <span className="font-serif font-bold text-xs">W</span>
+              <WordPressLogo className="h-3.5 w-3.5 text-white" />
               WP-Admin
               <ExternalLink className="h-3.5 w-3.5" />
             </button>
@@ -360,25 +361,25 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
           <div className="space-y-0.5">
             <p className="font-semibold text-white">DNS Pointing & Staging Preview Access</p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              If <span className="font-mono text-amber-300">{site.site_domain}</span> DNS hasn't propagated yet, use your dedicated staging subdomain <span className="text-white font-mono font-medium">https://{site.site_domain.replace(/[^a-z0-9]/gi, '-')}.maxmark.com.ng/wp-admin</span> or cPanel direct URL to log into WordPress immediately!
+              If <span className="font-mono text-amber-300">{site.site_domain}</span> DNS hasn't propagated yet, use your dedicated staging subdomain <span className="text-white font-mono font-medium">https://{site.site_domain.split('.')[0].replace(/[^a-z0-9]/gi, '')}.maxmark.com.ng/wp-admin</span> or cPanel direct URL to log into WordPress immediately!
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => {
-              const cleanSlug = site.site_domain.replace(/[^a-z0-9]/gi, '-').toLowerCase()
-              window.open(`https://${cleanSlug}.maxmark.com.ng/wp-admin`, '_blank', 'noopener,noreferrer')
+              const mainSlug = site.site_domain.split('.')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || 'staging'
+              window.open(`https://${mainSlug}.maxmark.com.ng/wp-admin`, '_blank', 'noopener,noreferrer')
             }}
             className="px-3 py-1.5 bg-[#5c4df0] hover:bg-[#4d3fe0] text-white text-xs font-semibold rounded transition flex items-center gap-1.5 shadow"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Staging Subdomain
+            Staging Subdomain URL
           </button>
           <button
             onClick={() => {
               const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-              window.open(`http://co-s1.serverpanel.com/~maxmark/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+              window.open(`http://co-s1.serverpanel.com/~maxmark/maxmark_sites/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
             }}
             className="px-3 py-1.5 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] text-white/80 text-xs font-medium rounded transition flex items-center gap-1.5"
           >
@@ -490,8 +491,8 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-semibold text-white">
-                    <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white shrink-0">
-                      W
+                    <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white shrink-0">
+                      <WordPressLogo className="h-3.5 w-3.5" />
                     </span>
                     Application Credentials
                   </div>
@@ -604,15 +605,15 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                     window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
                   }}
                 >
-                  <span className="font-serif font-bold text-xs">W</span>
+                  <WordPressLogo className="h-4 w-4 text-white shrink-0" />
                   Open WP-Admin Dashboard
                   <ExternalLink className="h-3.5 w-3.5" />
                 </button>
                 <button
                   className="w-full py-1.5 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] rounded text-[11px] font-medium text-white/80 text-center transition flex items-center justify-center gap-1.5"
                   onClick={() => {
-                    const cleanSlug = site.site_domain.replace(/[^a-z0-9]/gi, '-').toLowerCase()
-                    window.open(`https://${cleanSlug}.maxmark.com.ng/wp-admin`, '_blank', 'noopener,noreferrer')
+                    const mainSlug = site.site_domain.split('.')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || 'staging'
+                    window.open(`https://${mainSlug}.maxmark.com.ng/wp-admin`, '_blank', 'noopener,noreferrer')
                   }}
                 >
                   <Globe className="h-3 w-3 text-[#5c4df0]" />

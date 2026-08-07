@@ -15,6 +15,7 @@ import {
 import { CreateSiteModal } from '@/components/create-site-modal'
 import type { ManagedSite } from '@/types/provisioning'
 import { EmptyState, NoSearchResultState } from '@/components/ui/ui-states'
+import { WordPressLogo } from '@/components/icons/wordpress-logo'
 
 interface SitesPageProps {
   sites: ManagedSite[]
@@ -155,8 +156,8 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white select-none">
-                        W
+                      <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white select-none">
+                        <WordPressLogo className="h-3.5 w-3.5" />
                       </span>
                     </td>
                     <td className="px-5 py-4">
