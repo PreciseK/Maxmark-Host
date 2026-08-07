@@ -440,8 +440,18 @@ export function DashboardShell() {
               </div>
             </div>
 
-            {/* Profile Menu */}
+            {/* Profile & Admin Actions */}
             <div className="flex items-center gap-3">
+              {isAdmin ? (
+                <Link
+                  to="/admin"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-300 hover:bg-violet-500/20 hover:text-white transition duration-150 shadow-sm"
+                >
+                  <ShieldCheck className="h-4 w-4 text-violet-400" />
+                  <span>Admin Dashboard</span>
+                </Link>
+              ) : null}
+
               <input
                 accept="image/png,image/jpeg,image/webp"
                 className="hidden"

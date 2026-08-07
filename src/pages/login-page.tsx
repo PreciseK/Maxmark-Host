@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, LoaderCircle } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
@@ -19,6 +19,24 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const destination = (location.state as { from?: string } | null)?.from ?? '/home'
+
+  // Automatically redirect signed in users (including Google OAuth callbacks) to dashboard
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate('/home', { replace: true })
+      }
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        navigate('/home', { replace: true })
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [navigate])
 
   function validateEmail(val: string): boolean {
     if (!val || !val.includes('@') || !val.includes('.')) {
