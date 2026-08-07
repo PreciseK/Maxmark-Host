@@ -168,21 +168,14 @@ export function createFetchWhmExecutor(): WhmRequestExecutor {
         string,
         unknown
       >
-      if (!response.ok) {
-        console.warn(`WHM call ${request.name} returned HTTP ${response.status}. Fallback execution engaged.`)
-        return {
-          ok: true,
-          status: 200,
-          body: { metadata: { command: 'cpanel', reason: 'OK', result: 1, version: 1 } },
-        }
-      }
       return { ok: response.ok, status: response.status, body }
     } catch (err) {
-      console.warn('Real WHM fetch network request failed. Fallback execution engaged:', err)
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Real WHM fetch request ${request.name} failed:`, msg)
       return {
-        ok: true,
-        status: 200,
-        body: { metadata: { command: 'cpanel', reason: 'OK', result: 1, version: 1 } },
+        ok: false,
+        status: 502,
+        body: { error: `Unable to connect to WHM server on node (Port 2087): ${msg}` },
       }
     }
   }
@@ -236,7 +229,13 @@ async function executeWhmCall(
   const response = await executor(request)
 
   if (!response.ok) {
-    throw new Error(`${call.name} failed with HTTP ${response.status}`)
+    const errorDetail = (response.body?.error as string) || (response.body?.reason as string) || `HTTP ${response.status}`
+    throw new Error(`${call.name} failed: ${errorDetail}`)
+  }
+
+  const cpanelResult = (response.body?.cpanelresult as Record<string, unknown>) || response.body
+  if (cpanelResult?.error && typeof cpanelResult.error === 'string') {
+    throw new Error(`${call.name} error: ${cpanelResult.error}`)
   }
 
   return response.body
