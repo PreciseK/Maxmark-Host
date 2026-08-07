@@ -49,8 +49,8 @@ import { ChatWidget } from '@/components/support/chat-widget'
 // Main Sidebar links
 const mainNavItems = [
   { label: 'Home', href: '/home', icon: Home },
-  { label: 'Plans', href: '/plans', icon: Layers, badge: '1' },
-  { label: 'Domains', href: '/domains', icon: Code, badge: '1' },
+  { label: 'Plans', href: '/plans', icon: Layers },
+  { label: 'Domains', href: '/domains', icon: Code },
   { label: 'Sites', href: '/sites', icon: Globe2 },
   { label: 'Marketplace', href: '/marketplace', icon: Store },
   { label: 'Billing', href: '/billing', icon: CircleDollarSign },
@@ -99,6 +99,31 @@ export function DashboardShell() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => setMobileNavOpen(false), [location.pathname, location.search])
+
+  const [itemCounts, setItemCounts] = useState<{ sites: number; domains: number }>({ sites: 0, domains: 0 })
+
+  useEffect(() => {
+    if (!supabase || !session) return
+    let active = true
+
+    Promise.all([
+      supabase.from('user_sites').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id),
+      supabase.from('registered_domains').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id),
+    ])
+      .then(([sitesRes, domainsRes]) => {
+        if (active) {
+          setItemCounts({
+            sites: sitesRes.count ?? 0,
+            domains: domainsRes.count ?? 0,
+          })
+        }
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [session])
 
   const isSiteDetail = siteId !== undefined && location.pathname.startsWith('/sites/')
   const isBilling = location.pathname.startsWith('/billing')
@@ -265,8 +290,11 @@ export function DashboardShell() {
                   {mainNavItems.map((item) => {
                     const Icon = item.icon
                     const isSupport = item.href === '/support'
-                    const badge =
-                      isSupport && supportUnread > 0 ? String(supportUnread) : item.badge
+                    let badge: string | undefined = undefined
+                    if (isSupport && supportUnread > 0) badge = String(supportUnread)
+                    else if (item.href === '/plans' && itemCounts.sites > 0) badge = String(itemCounts.sites)
+                    else if (item.href === '/domains' && itemCounts.domains > 0) badge = String(itemCounts.domains)
+                    else if (item.href === '/sites' && itemCounts.sites > 0) badge = String(itemCounts.sites)
                     return (
                       <NavLink
                         className={({ isActive }) =>
