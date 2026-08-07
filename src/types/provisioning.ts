@@ -18,6 +18,7 @@ export interface UserSiteRecord {
   db_user: string
   document_root: string
   status: UserSiteStatus
+  wp_admin_password?: string
   created_at?: string
   updated_at?: string
 }

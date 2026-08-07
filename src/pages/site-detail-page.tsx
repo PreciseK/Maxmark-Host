@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Check,
 } from 'lucide-react'
 
 import { MetricChart } from '@/components/site/metric-chart'
@@ -131,6 +135,20 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
   const [copiedText, setCopiedText] = useState<string | null>(null)
   const [backupLogs, setBackupLogs] = useState<BackupLog[]>([])
   const [backupLoadError, setBackupLoadError] = useState(false)
+  
+  const [showPassword, setShowPassword] = useState(false)
+  const [isEditingPassword, setIsEditingPassword] = useState(false)
+  const [wpPassword, setWpPassword] = useState(site?.wp_admin_password || 'MaxMark@2026!Secured')
+  const [newPasswordInput, setNewPasswordInput] = useState('')
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
+  const [passwordSaveSuccess, setPasswordSaveSuccess] = useState(false)
+
+  useEffect(() => {
+    if (site?.wp_admin_password) {
+      setWpPassword(site.wp_admin_password)
+    }
+  }, [site?.wp_admin_password])
+
   const {
     resources,
     loading: resourcesLoading,
@@ -156,6 +174,35 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
     navigator.clipboard.writeText(text)
     setCopiedText(text)
     setTimeout(() => setCopiedText(null), 2000)
+  }
+
+  const handleSavePassword = async (passToSave: string) => {
+    if (!passToSave || !site || !supabase) return
+    setIsSavingPassword(true)
+    try {
+      const { error } = await supabase
+        .from('user_sites')
+        .update({ wp_admin_password: passToSave })
+        .eq('id', site.id)
+      if (error) throw error
+      setWpPassword(passToSave)
+      setIsEditingPassword(false)
+      setPasswordSaveSuccess(true)
+      setTimeout(() => setPasswordSaveSuccess(false), 3500)
+    } catch (err) {
+      console.error('Failed to update password:', err)
+    } finally {
+      setIsSavingPassword(false)
+    }
+  }
+
+  const generateRandomPassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
+    let pass = ''
+    for (let i = 0; i < 16; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setNewPasswordInput(pass)
   }
 
   if (!site) {
@@ -304,34 +351,44 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
           </div>
         </div>
       </div>
-
-      {/* Pre-DNS / Staging Banner Notice */}
+          {/* Pre-DNS / Staging Banner Notice */}
       <div className="bg-[#161619] border border-amber-500/30 rounded-lg p-4 text-xs text-amber-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0 mt-0.5 sm:mt-0">
             <Globe className="h-4 w-4" />
           </div>
           <div className="space-y-0.5">
-            <p className="font-semibold text-white">DNS Pointing & Pre-Launch Staging Access</p>
+            <p className="font-semibold text-white">DNS Pointing & Staging Preview Access</p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              If your domain <span className="font-mono text-amber-300">{site.site_domain}</span> hasn't been pointed to Maxmark nameservers (<span className="text-white font-mono">ns1.maxmark.com.ng</span> & <span className="text-white font-mono">ns2.maxmark.com.ng</span>) yet, production WP-Admin URLs won't resolve. Use the <strong className="text-white">Staging Temp Login</strong> button below to access WordPress instantly!
+              If <span className="font-mono text-amber-300">{site.site_domain}</span> DNS hasn't propagated yet, use your dedicated staging subdomain <span className="text-white font-mono font-medium">https://{site.site_domain.replace(/[^a-z0-9]/gi, '-')}.maxmark.com.ng/wp-admin</span> or cPanel direct URL to log into WordPress immediately!
             </p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-            window.open(`http://co-s1.serverpanel.com/~maxmark/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
-          }}
-          className="shrink-0 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-semibold rounded transition flex items-center gap-1.5"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Launch Staging WP-Admin
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              const cleanSlug = site.site_domain.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+              window.open(`https://${cleanSlug}.maxmark.com.ng/wp-admin`, '_blank', 'noopener,noreferrer')
+            }}
+            className="px-3 py-1.5 bg-[#5c4df0] hover:bg-[#4d3fe0] text-white text-xs font-semibold rounded transition flex items-center gap-1.5 shadow"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Staging Subdomain
+          </button>
+          <button
+            onClick={() => {
+              const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+              window.open(`http://co-s1.serverpanel.com/~maxmark/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+            }}
+            className="px-3 py-1.5 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] text-white/80 text-xs font-medium rounded transition flex items-center gap-1.5"
+          >
+            cPanel Direct URL
+          </button>
+        </div>
       </div>
 
       {copiedText && (
-        <div className="fixed bottom-5 right-5 bg-[#161619] border border-emerald-500/30 text-emerald-400 text-xs px-4 py-2 rounded-md shadow-lg animate-bounce select-none">
+        <div className="fixed bottom-5 right-5 bg-[#161619] border border-emerald-500/30 text-emerald-400 text-xs px-4 py-2 rounded-md shadow-lg animate-bounce select-none z-50">
           Copied "{copiedText}" to clipboard
         </div>
       )}
@@ -431,25 +488,114 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             {/* Application */}
             <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4 text-xs flex flex-col justify-between">
               <div className="space-y-4">
-                <div className="flex items-center gap-2 font-semibold text-white">
-                  <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white shrink-0">
-                    W
-                  </span>
-                  Application
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-semibold text-white">
+                    <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white shrink-0">
+                      W
+                    </span>
+                    Application Credentials
+                  </div>
+                  {passwordSaveSuccess && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <Check className="h-3 w-3" /> Updated
+                    </span>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Username</span>
-                  <div className="flex items-center justify-between bg-[#121214] border border-[#232328] rounded p-2 text-xs font-mono">
-                    <span className="truncate text-white">{site.db_user}</span>
-                    <button className="text-muted-foreground hover:text-white" onClick={() => handleCopy(site.db_user)}>
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
+
+                <div className="space-y-3">
+                  {/* Username */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">WP-Admin Username</span>
+                    <div className="flex items-center justify-between bg-[#121214] border border-[#232328] rounded p-2 text-xs font-mono">
+                      <span className="truncate text-white">{site.db_user}</span>
+                      <button
+                        className="text-muted-foreground hover:text-white"
+                        onClick={() => handleCopy(site.db_user)}
+                        title="Copy Username"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">WP-Admin Password</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingPassword(!isEditingPassword)
+                          setNewPasswordInput(wpPassword)
+                        }}
+                        className="text-[10px] text-[#5c4df0] hover:underline font-semibold flex items-center gap-1"
+                      >
+                        <KeyRound className="h-3 w-3" />
+                        {isEditingPassword ? 'Cancel' : 'Change Password'}
+                      </button>
+                    </div>
+
+                    {!isEditingPassword ? (
+                      <div className="flex items-center justify-between bg-[#121214] border border-[#232328] rounded p-2 text-xs font-mono">
+                        <span className="truncate text-white select-all">
+                          {showPassword ? wpPassword : '••••••••••••••••'}
+                        </span>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <button
+                            type="button"
+                            className="hover:text-white"
+                            onClick={() => setShowPassword(!showPassword)}
+                            title={showPassword ? 'Hide Password' : 'Show Password'}
+                          >
+                            {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            type="button"
+                            className="hover:text-white"
+                            onClick={() => handleCopy(wpPassword)}
+                            title="Copy Password"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={newPasswordInput}
+                            onChange={(e) => setNewPasswordInput(e.target.value)}
+                            placeholder="Enter new password"
+                            className="w-full bg-[#121214] border border-[#5c4df0]/50 rounded px-2 py-1.5 text-xs text-white font-mono focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={generateRandomPassword}
+                            title="Generate strong random password"
+                            className="shrink-0 px-2 py-1.5 bg-[#202024] hover:bg-[#2d2d34] border border-[#2d2d34] text-[10px] font-semibold text-white/80 rounded"
+                          >
+                            Generate
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isSavingPassword || !newPasswordInput.trim()}
+                          onClick={() => handleSavePassword(newPasswordInput.trim())}
+                          className="w-full py-1.5 bg-[#5c4df0] hover:bg-[#4d3fe0] disabled:opacity-50 text-white text-xs font-semibold rounded transition flex items-center justify-center gap-1.5"
+                        >
+                          {isSavingPassword ? 'Saving Password...' : 'Save New Password'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
+
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Click below to log directly into your WordPress Admin Dashboard. You can also use WordPress's "Forgot Password" feature to reset your admin password if needed.
+                  Use your username and password to log into WordPress WP-Admin. You can update or generate a new password above anytime.
                 </p>
               </div>
+
               <div className="flex flex-col gap-2 pt-2">
                 <button
                   className="w-full py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white text-center transition flex items-center justify-center gap-2 shadow"
@@ -463,13 +609,14 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   <ExternalLink className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  className="w-full py-1.5 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] rounded text-[11px] font-medium text-white/80 text-center transition"
+                  className="w-full py-1.5 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] rounded text-[11px] font-medium text-white/80 text-center transition flex items-center justify-center gap-1.5"
                   onClick={() => {
-                    const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-                    window.open(`http://co-s1.serverpanel.com/~maxmark/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                    const cleanSlug = site.site_domain.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+                    window.open(`https://${cleanSlug}.maxmark.com.ng/wp-admin`, '_blank', 'noopener,noreferrer')
                   }}
                 >
-                  Staging Temp Login (cPanel Direct)
+                  <Globe className="h-3 w-3 text-[#5c4df0]" />
+                  Staging Subdomain URL
                 </button>
               </div>
             </div>
