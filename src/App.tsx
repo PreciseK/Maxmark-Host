@@ -29,6 +29,7 @@ const SupportPage = lazyPage(() => import('@/pages/support-page'), 'SupportPage'
 const BillingPage = lazyPage(() => import('@/pages/billing-page'), 'BillingPage')
 const SslPage = lazyPage(() => import('@/pages/ssl-page'), 'SslPage')
 const LegalPage = lazyPage(() => import('@/pages/legal-page'), 'LegalPage')
+const ProfilePage = lazyPage(() => import('@/pages/profile-page'), 'ProfilePage')
 const KbPage = lazyPage(() => import('@/pages/kb-page'), 'KbPage')
 const KbArticlePage = lazyPage(() => import('@/pages/kb-article-page'), 'KbArticlePage')
 
@@ -161,6 +162,7 @@ export function App() {
             path="marketplace"
           />
           <Route element={<BillingPage />} path="billing" />
+          <Route element={<ProfilePage />} path="profile" />
           <Route element={<SupportPage />} path="support" />
           <Route element={<SslPage />} path="ssl" />
           <Route element={<KbPage />} path="kb" />

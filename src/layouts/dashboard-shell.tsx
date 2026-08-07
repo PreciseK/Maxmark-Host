@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import {
   CircleDollarSign,
@@ -42,7 +42,6 @@ import {
 
 import { cn } from '@/lib/utils'
 import { useSession } from '@/lib/session-store'
-import { uploadAvatar } from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
 import { ChatWidget } from '@/components/support/chat-widget'
 
@@ -59,46 +58,48 @@ const mainNavItems = [
 
 // Site-specific sub-sidebar links
 const siteNavItems = [
-  { label: 'Credentials', tabId: 'credentials', icon: Key },
-  { label: 'Content Delivery', tabId: 'content-delivery', icon: Cloud },
-  { label: 'Backups', tabId: 'backups', icon: History },
-  { label: 'Staging & Dev', tabId: 'staging', icon: GitBranch },
-  { label: 'Email', tabId: 'email', icon: Mail },
-  { label: 'Visual Comparison', tabId: 'visual-comparison', icon: Eye },
-  { label: 'Design Services', tabId: 'design-services', icon: PenTool },
-  { label: 'Analytics', tabId: 'analytics', icon: TrendingUp },
-  { label: 'Domains', tabId: 'domains', icon: Globe },
-  { label: 'Management', tabId: 'management', icon: Settings },
-  { label: 'Databases', tabId: 'databases', icon: Database },
-  { label: 'SSL', tabId: 'ssl', icon: Lock },
-  { label: 'Logs', tabId: 'logs', icon: FileText },
-  { label: 'Scheduled Tasks', tabId: 'tasks', icon: Clock },
-  { label: 'Containers', tabId: 'containers', icon: Box },
-  { label: 'Integrations', tabId: 'integrations', icon: Link2 },
+  { label: 'Overview', tabId: 'credentials', icon: Home },
+  { label: 'SFTP / SSH', tabId: 'sftp', icon: Key },
+  { label: 'Cloudflare Integration', tabId: 'cloudflare', icon: Cloud },
+  { label: 'WordPress Backups', tabId: 'backups', icon: History },
+  { label: 'Staging Environment', tabId: 'staging', icon: GitBranch },
+  { label: 'PHP Engine & Config', tabId: 'php-version', icon: PenTool },
+  { label: 'Analytics & Traffic', tabId: 'traffic-metrics', icon: TrendingUp },
+  { label: 'Tools & Reset', tabId: 'site-reset', icon: Settings },
+  { label: 'Database Admin', tabId: 'database-admin', icon: Database },
+  { label: 'Free SSL Certificate', tabId: 'ssl-tls', icon: Lock },
+  { label: 'Access Logs', tabId: 'access-logs', icon: FileText },
+  { label: 'Cron Jobs', tabId: 'cron-jobs', icon: Clock },
+  { label: 'Object Cache (Redis)', tabId: 'object-cache', icon: Box },
+  { label: 'Domain Redirection', tabId: 'domain-redirect', icon: Link2 },
 ]
 
-// Billing-specific sub-sidebar links
+// Billing sub-sidebar links
 const billingNavItems = [
   { label: 'Invoices', tabId: 'invoices', icon: Receipt },
-  { label: 'Credits', tabId: 'credits', icon: Coins },
-  { label: 'Payments', tabId: 'payments', icon: CreditCard },
+  { label: 'Billing Details', tabId: 'details', icon: Coins },
   { label: 'Payment Info', tabId: 'payment-info', icon: CreditCard },
   { label: 'Orders', tabId: 'orders', icon: ShoppingCart },
 ]
 
 export function DashboardShell() {
   const location = useLocation()
-  const { session, isAdmin, supportUnread, avatarUrl, setAvatarUrl, accountId, supportPin } =
+  const { session, isAdmin, supportUnread, avatarUrl, accountId, supportPin } =
     useSession()
   const [showPin, setShowPin] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [showMore, setShowMore] = useState(() => {
     return location.pathname === '/ssl' || location.pathname === '/dns-zones'
   })
+  const [prevLocationKey, setPrevLocationKey] = useState(location.key)
+
+  if (prevLocationKey !== location.key) {
+    setPrevLocationKey(location.key)
+    setMobileNavOpen(false)
+  }
+
   const { siteId } = useParams()
   const [searchParams] = useSearchParams()
-
-  useEffect(() => setMobileNavOpen(false), [location.pathname, location.search])
 
   const [itemCounts, setItemCounts] = useState<{ sites: number; domains: number }>({ sites: 0, domains: 0 })
 
@@ -141,32 +142,6 @@ export function DashboardShell() {
     .join('')
     .slice(0, 2)
     .toUpperCase()
-
-  const [avatarBusy, setAvatarBusy] = useState(false)
-  const avatarInputRef = useRef<HTMLInputElement | null>(null)
-
-  async function handleAvatarSelected(fileList: FileList | null) {
-    const file = fileList?.[0]
-    if (!file) return
-    if (!supabase || !session) {
-      setAvatarUrl(URL.createObjectURL(file))
-      return
-    }
-    setAvatarBusy(true)
-    try {
-      const publicUrl = await uploadAvatar(supabase, file)
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', session.user.id)
-      if (error) throw error
-      setAvatarUrl(publicUrl)
-    } catch (error) {
-      console.warn('Avatar upload failed:', error)
-    } finally {
-      setAvatarBusy(false)
-    }
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#121214] text-white">
@@ -480,35 +455,26 @@ export function DashboardShell() {
                 </Link>
               ) : null}
 
-              <input
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={(e) => void handleAvatarSelected(e.target.files)}
-                ref={avatarInputRef}
-                type="file"
-              />
-              <button
-                className="flex items-center gap-2 border border-[#2d2d34] bg-[#161619] rounded-md px-3 py-1.5 hover:bg-[#202024] transition duration-150 select-none disabled:opacity-60"
-                disabled={avatarBusy}
-                onClick={() => avatarInputRef.current?.click()}
-                title="Click to change your avatar"
-                type="button"
+              <Link
+                className="flex items-center gap-2 border border-[#2d2d34] bg-[#161619] rounded-md px-3 py-1.5 hover:bg-[#202024] hover:border-[#5c4df0]/50 transition duration-150 select-none"
+                to="/profile"
+                title="Open Profile Settings"
               >
                 {avatarUrl ? (
                   <img
-                    alt=""
+                    alt="User avatar"
                     className="h-5 w-5 rounded-full object-cover"
                     src={avatarUrl}
                   />
                 ) : (
-                  <div className="h-5 w-5 bg-zinc-700 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                  <div className="h-5 w-5 bg-violet-600/30 border border-violet-500/40 rounded-full flex items-center justify-center text-[10px] font-bold text-violet-300 uppercase">
                     {clientInitials}
                   </div>
                 )}
                 <span className="text-xs font-semibold text-white">
-                  {avatarBusy ? 'Uploading…' : `Hi, ${clientName}`}
+                  Hi, {clientName}
                 </span>
-              </button>
+              </Link>
             </div>
           </header>
 
