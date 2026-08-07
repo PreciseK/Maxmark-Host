@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpDown, Layers, MoreVertical, Plus } from 'lucide-react'
+import { ArrowUpDown, Layers, Plus, Settings, Key, RefreshCw, Copy } from 'lucide-react'
 
 import { fetchPlans, type HostingPlan } from '@/lib/db/plans'
 import { supabase } from '@/lib/supabase'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/ui-states'
+import { WordPressLogo } from '@/components/icons/wordpress-logo'
+import { ActionDropdown } from '@/components/ui/dropdown-menu'
 
 function regionFlag(region: string): { emoji: string; label: string } {
   const r = region.toLowerCase()
@@ -157,8 +159,8 @@ export function PlansPage() {
                       <td className="px-5 py-4 text-muted-foreground">– / {plan.sitesLimit}</td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white select-none">
-                            W
+                          <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white select-none">
+                            <WordPressLogo className="h-3.5 w-3.5" />
                           </span>
                           <span>{plan.appEnvironment}</span>
                         </div>
@@ -166,10 +168,35 @@ export function PlansPage() {
                       <td className="px-5 py-4 font-semibold">{plan.type}</td>
                       <td className="px-5 py-4">{fmtPrice(plan.priceNgnYearly)}</td>
                       <td className="px-5 py-4 text-muted-foreground">{fmtDate(plan.renewalDate)}</td>
-                      <td className="px-5 py-4">
-                        <button className="text-muted-foreground hover:text-white transition" type="button">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
+                      <td className="px-5 py-4 text-right">
+                        <ActionDropdown
+                          items={[
+                            {
+                              label: 'View Environment Settings',
+                              icon: <Settings className="h-3.5 w-3.5 text-sky-400" />,
+                              href: '/sites',
+                            },
+                            {
+                              label: 'View Credentials',
+                              icon: <Key className="h-3.5 w-3.5 text-amber-400" />,
+                              href: '/sites',
+                            },
+                            {
+                              label: 'Upgrade / Modify Plan',
+                              icon: <RefreshCw className="h-3.5 w-3.5 text-emerald-400" />,
+                              onClick: () => {
+                                alert(`Plan upgrade requested for ${plan.name}`)
+                              },
+                            },
+                            {
+                              label: 'Copy Subscription ID',
+                              icon: <Copy className="h-3.5 w-3.5 text-muted-foreground" />,
+                              onClick: () => {
+                                navigator.clipboard.writeText(plan.id)
+                              },
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   )

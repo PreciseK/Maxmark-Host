@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Globe,
   LoaderCircle,
-  MoreVertical,
   Plus,
   Search,
   Sparkles,
@@ -18,6 +17,7 @@ import {
   type DomainCheckResult,
 } from '@/lib/domain-checker'
 import { supabase } from '@/lib/supabase'
+import { ActionDropdown } from '@/components/ui/dropdown-menu'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/ui-states'
 
 function fmtDate(iso: string): string {
@@ -341,10 +341,33 @@ export function DomainsPage() {
                         {dom.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
-                      <button className="text-muted-foreground hover:text-white transition" type="button">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
+                    <td className="px-5 py-4 text-right">
+                      <ActionDropdown
+                        items={[
+                          {
+                            label: 'Manage DNS Records',
+                            icon: <Globe className="h-3.5 w-3.5 text-sky-400" />,
+                            href: '/dns-zones',
+                          },
+                          {
+                            label: 'SSL & Security',
+                            icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />,
+                            href: '/ssl',
+                          },
+                          {
+                            label: 'Copy Domain Name',
+                            onClick: () => {
+                              navigator.clipboard.writeText(dom.domain)
+                            },
+                          },
+                          {
+                            label: 'Renew Registration',
+                            onClick: () => {
+                              alert(`Renewal requested for ${dom.domain}`)
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpDown, Globe, MoreVertical, Search } from 'lucide-react'
+import { ArrowUpDown, Globe, Search } from 'lucide-react'
 
 import { fetchDnsZones, type DnsZone } from '@/lib/db/dns-zones'
 import { supabase } from '@/lib/supabase'
 import { EmptyState, ErrorState, NoSearchResultState, TableSkeleton } from '@/components/ui/ui-states'
+import { ActionDropdown } from '@/components/ui/dropdown-menu'
 
 export function DnsZonesPage() {
   const [zones, setZones] = useState<DnsZone[]>([])
@@ -144,10 +145,29 @@ export function DnsZonesPage() {
                     </td>
                     <td className="px-5 py-4 text-white font-medium">{zone.recordCount}</td>
                     <td className="px-5 py-4 text-white">{zone.contact}</td>
-                    <td className="px-5 py-4">
-                      <button className="text-muted-foreground hover:text-white transition">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
+                    <td className="px-5 py-4 text-right">
+                      <ActionDropdown
+                        items={[
+                          {
+                            label: 'Edit DNS Records',
+                            onClick: () => {
+                              alert(`Editing DNS records for ${zone.zoneName}`)
+                            },
+                          },
+                          {
+                            label: 'Copy Nameservers',
+                            onClick: () => {
+                              navigator.clipboard.writeText('ns1.maxmark.com.ng\nns2.maxmark.com.ng')
+                            },
+                          },
+                          {
+                            label: 'Export BIND Zone File',
+                            onClick: () => {
+                              alert(`Exporting BIND zone file for ${zone.zoneName}`)
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

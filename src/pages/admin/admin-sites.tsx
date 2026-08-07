@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Edit2, Trash2, ExternalLink, Settings, ShieldAlert, Check, Search } from 'lucide-react'
 
 import {
   fetchAllProfiles,
@@ -26,7 +26,11 @@ import {
   theadRowClass,
   thClass,
   type BadgeTone,
+  adminDialogClass,
 } from '@/components/admin/admin-ui'
+import { ActionDropdown } from '@/components/ui/dropdown-menu'
+import { WordPressLogo } from '@/components/icons/wordpress-logo'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const siteTone: Record<AdminSiteRow['status'], BadgeTone> = {
   active: 'green',
@@ -45,10 +49,22 @@ export function AdminSites() {
   const [nodes, setNodes] = useState<HostingNode[]>([])
   const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [search, setSearch] = useState('')
-  const [busySiteId, setBusySiteId] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<{ kind: 'demo' | 'error'; text?: string } | null>(
+  const [feedback, setFeedback] = useState<{ kind: 'demo' | 'error' | 'success'; text?: string } | null>(
     null,
   )
+
+  // Edit Site State
+  const [editingSite, setEditingSite] = useState<AdminSiteRow | null>(null)
+  const [editDomain, setEditDomain] = useState('')
+  const [editPlan, setEditPlan] = useState('')
+  const [editPhpVersion, setEditPhpVersion] = useState('8.2')
+  const [editStatus, setEditStatus] = useState<AdminSiteRow['status']>('active')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  // Delete Site State
+  const [deletingSite, setDeletingSite] = useState<AdminSiteRow | null>(null)
+  const [confirmDomainInput, setConfirmDomainInput] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const statusParam = searchParams.get('status')
   const statusFilter: StatusFilter = statusFilters.includes(statusParam as StatusFilter)
@@ -111,7 +127,6 @@ export function AdminSites() {
 
     if (!supabase) return
 
-    setBusySiteId(site.id)
     setFeedback(null)
     try {
       await adminAction(supabase, {
@@ -127,8 +142,83 @@ export function AdminSites() {
         kind: 'error',
         text: error instanceof Error ? error.message : 'Site update failed',
       })
+    }
+  }
+
+  function openEditModal(site: AdminSiteRow) {
+    setEditingSite(site)
+    setEditDomain(site.siteDomain)
+    setEditPlan(site.plan)
+    setEditPhpVersion(site.phpVersion || '8.2')
+    setEditStatus(site.status)
+  }
+
+  async function handleSaveEdit() {
+    if (!editingSite || !supabase) return
+    setIsSavingEdit(true)
+    setFeedback(null)
+    try {
+      const { error } = await supabase
+        .from('user_sites')
+        .update({
+          site_domain: editDomain,
+          plan: editPlan,
+          status: editStatus,
+          php_version: editPhpVersion,
+        })
+        .eq('id', editingSite.id)
+
+      if (error) throw error
+
+      setSites((prev) =>
+        prev.map((s) =>
+          s.id === editingSite.id
+            ? {
+                ...s,
+                siteDomain: editDomain,
+                plan: editPlan,
+                status: editStatus,
+                phpVersion: editPhpVersion,
+              }
+            : s,
+        ),
+      )
+
+      setFeedback({ kind: 'success', text: `Updated details for ${editDomain}` })
+      setEditingSite(null)
+    } catch (err) {
+      setFeedback({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Failed to update site',
+      })
     } finally {
-      setBusySiteId(null)
+      setIsSavingEdit(false)
+    }
+  }
+
+  async function handleDeleteSite() {
+    if (!deletingSite || !supabase) return
+    setIsDeleting(true)
+    setFeedback(null)
+    try {
+      const { error } = await supabase
+        .from('user_sites')
+        .delete()
+        .eq('id', deletingSite.id)
+
+      if (error) throw error
+
+      setSites((prev) => prev.filter((s) => s.id !== deletingSite.id))
+      setFeedback({ kind: 'success', text: `Deleted site ${deletingSite.siteDomain}` })
+      setDeletingSite(null)
+      setConfirmDomainInput('')
+    } catch (err) {
+      setFeedback({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Failed to delete site',
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -144,6 +234,10 @@ export function AdminSites() {
       {feedback?.kind === 'error' ? (
         <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
           {feedback.text}
+        </p>
+      ) : feedback?.kind === 'success' ? (
+        <p className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2 flex items-center gap-1.5">
+          <Check className="h-3.5 w-3.5" /> {feedback.text}
         </p>
       ) : null}
 
@@ -238,22 +332,43 @@ export function AdminSites() {
                   <td className={`${cellClass} text-muted-foreground`}>
                     {formatDateLabel(site.createdAt)}
                   </td>
-                  <td className={cellClass}>
-                    {site.status === 'active' || site.status === 'suspended' ? (
-                      <button
-                        className="text-[#5c4df0] hover:text-[#796ef3] font-semibold disabled:opacity-50"
-                        disabled={busySiteId === site.id}
-                        onClick={() => void handleStatusToggle(site)}
-                      >
-                        {busySiteId === site.id
-                          ? 'Saving…'
-                          : site.status === 'suspended'
-                            ? 'Unsuspend'
-                            : 'Suspend'}
-                      </button>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                  <td className={`${cellClass} text-right`}>
+                    <ActionDropdown
+                      items={[
+                        {
+                          label: 'WP-Admin Dashboard',
+                          icon: <WordPressLogo className="h-3.5 w-3.5 text-[#0073aa]" />,
+                          onClick: () => {
+                            const cleanDomain = site.siteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                            window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                          },
+                        },
+                        {
+                          label: 'Open Customer Console',
+                          icon: <ExternalLink className="h-3.5 w-3.5 text-sky-400" />,
+                          href: `/sites/${site.id}`,
+                        },
+                        {
+                          label: 'Edit Site Details',
+                          icon: <Edit2 className="h-3.5 w-3.5 text-amber-400" />,
+                          onClick: () => openEditModal(site),
+                        },
+                        {
+                          label: site.status === 'suspended' ? 'Unsuspend Site' : 'Suspend Site',
+                          icon: <Settings className="h-3.5 w-3.5 text-[#5c4df0]" />,
+                          onClick: () => void handleStatusToggle(site),
+                        },
+                        {
+                          label: 'Delete Site',
+                          icon: <Trash2 className="h-3.5 w-3.5" />,
+                          danger: true,
+                          onClick: () => {
+                            setDeletingSite(site)
+                            setConfirmDomainInput('')
+                          },
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               )
@@ -264,6 +379,141 @@ export function AdminSites() {
           </tbody>
         </table>
       </TableCard>
+
+      {/* Edit Site Dialog */}
+      <Dialog open={Boolean(editingSite)} onOpenChange={(open) => !open && setEditingSite(null)}>
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-white flex items-center gap-2">
+              <Edit2 className="h-4 w-4 text-[#5c4df0]" />
+              Edit Site Configuration
+            </DialogTitle>
+          </DialogHeader>
+
+          {editingSite && (
+            <div className="space-y-4 text-xs py-2">
+              <div className="space-y-1">
+                <label className="text-muted-foreground font-medium">Domain Name</label>
+                <input
+                  type="text"
+                  value={editDomain}
+                  onChange={(e) => setEditDomain(e.target.value)}
+                  className="w-full bg-[#121214] border border-[#232328] rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-[#5c4df0]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-muted-foreground font-medium">Hosting Plan</label>
+                  <select
+                    value={editPlan}
+                    onChange={(e) => setEditPlan(e.target.value)}
+                    className="w-full bg-[#121214] border border-[#232328] rounded px-3 py-2 text-white focus:outline-none focus:border-[#5c4df0]"
+                  >
+                    <option value="WordPress Starter">WordPress Starter</option>
+                    <option value="WordPress Pro">WordPress Pro</option>
+                    <option value="WordPress VIP">WordPress VIP</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-muted-foreground font-medium">PHP Version</label>
+                  <select
+                    value={editPhpVersion}
+                    onChange={(e) => setEditPhpVersion(e.target.value)}
+                    className="w-full bg-[#121214] border border-[#232328] rounded px-3 py-2 text-white focus:outline-none focus:border-[#5c4df0]"
+                  >
+                    <option value="8.3">PHP 8.3 (Latest)</option>
+                    <option value="8.2">PHP 8.2 (Recommended)</option>
+                    <option value="8.1">PHP 8.1</option>
+                    <option value="8.0">PHP 8.0</option>
+                    <option value="7.4">PHP 7.4</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-muted-foreground font-medium">Status</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as AdminSiteRow['status'])}
+                  className="w-full bg-[#121214] border border-[#232328] rounded px-3 py-2 text-white focus:outline-none focus:border-[#5c4df0]"
+                >
+                  <option value="active">Active</option>
+                  <option value="provisioning">Provisioning</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              onClick={() => setEditingSite(null)}
+              className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] text-white/80 text-xs rounded transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleSaveEdit()}
+              disabled={isSavingEdit || !editDomain}
+              className="px-4 py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] text-white text-xs font-semibold rounded transition disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {isSavingEdit ? 'Saving...' : 'Save Changes'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Site Dialog */}
+      <Dialog open={Boolean(deletingSite)} onOpenChange={(open) => !open && setDeletingSite(null)}>
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-red-400 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-red-500" />
+              Delete Site Permanently
+            </DialogTitle>
+          </DialogHeader>
+
+          {deletingSite && (
+            <div className="space-y-4 text-xs py-2">
+              <p className="text-muted-foreground leading-relaxed">
+                This action cannot be undone. This will permanently remove <span className="text-white font-mono font-semibold">{deletingSite.siteDomain}</span> and delete all attached credentials and metadata.
+              </p>
+
+              <div className="space-y-1">
+                <label className="text-muted-foreground font-medium">
+                  Type <span className="text-white font-mono">{deletingSite.siteDomain}</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={confirmDomainInput}
+                  onChange={(e) => setConfirmDomainInput(e.target.value)}
+                  placeholder={deletingSite.siteDomain}
+                  className="w-full bg-[#121214] border border-[#232328] rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-red-500/50"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              onClick={() => setDeletingSite(null)}
+              className="px-4 py-2 bg-[#202024] hover:bg-[#2c2c32] text-white/80 text-xs rounded transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleDeleteSite()}
+              disabled={isDeleting || confirmDomainInput !== deletingSite?.siteDomain}
+              className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded transition disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Site'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -5,17 +5,22 @@ import {
   ChevronDown,
   Cloud,
   Edit2,
-  MoreVertical,
   Plus,
   RefreshCw,
   Search,
   Server,
+  Settings,
+  Copy,
+  ShieldCheck,
+  Archive,
+  Trash2,
 } from 'lucide-react'
 
 import { CreateSiteModal } from '@/components/create-site-modal'
 import type { ManagedSite } from '@/types/provisioning'
 import { EmptyState, NoSearchResultState } from '@/components/ui/ui-states'
 import { WordPressLogo } from '@/components/icons/wordpress-logo'
+import { ActionDropdown } from '@/components/ui/dropdown-menu'
 
 interface SitesPageProps {
   sites: ManagedSite[]
@@ -163,10 +168,51 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
                     <td className="px-5 py-4">
                       <Cloud className="h-5 w-5 text-[#88888b] fill-[#88888b]/10" />
                     </td>
-                    <td className="px-5 py-4">
-                      <button className="text-muted-foreground hover:text-white transition" type="button">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
+                    <td className="px-5 py-4 text-right">
+                      <ActionDropdown
+                        items={[
+                          {
+                            label: 'WP-Admin Dashboard',
+                            icon: <WordPressLogo className="h-3.5 w-3.5 text-[#0073aa]" />,
+                            onClick: () => {
+                              const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                              window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                            },
+                          },
+                          {
+                            label: 'Manage Site Settings',
+                            icon: <Settings className="h-3.5 w-3.5" />,
+                            href: `/sites/${site.id}`,
+                          },
+                          {
+                            label: 'Copy Domain Name',
+                            icon: <Copy className="h-3.5 w-3.5" />,
+                            onClick: () => {
+                              navigator.clipboard.writeText(site.site_domain)
+                            },
+                          },
+                          {
+                            label: 'SSL & Security',
+                            icon: <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />,
+                            href: `/sites/${site.id}?tab=ssl`,
+                          },
+                          {
+                            label: 'Backups & Snapshots',
+                            icon: <Archive className="h-3.5 w-3.5 text-sky-400" />,
+                            href: `/sites/${site.id}?tab=backups`,
+                          },
+                          {
+                            label: 'Delete Site',
+                            icon: <Trash2 className="h-3.5 w-3.5" />,
+                            danger: true,
+                            onClick: () => {
+                              if (confirm(`Are you sure you want to delete ${site.site_domain}? This action is permanent.`)) {
+                                console.log('Site deletion requested for:', site.id)
+                              }
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

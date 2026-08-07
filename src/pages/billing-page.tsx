@@ -8,6 +8,7 @@ import { useSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { PaystackCheckout } from '@/components/paystack-checkout'
 import { EmptyState, ErrorState, TableSkeleton, StatsSkeleton } from '@/components/ui/ui-states'
+import { ActionDropdown } from '@/components/ui/dropdown-menu'
 
 const fmt = new Intl.DateTimeFormat('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })
 const fmtDate = (iso: string) => fmt.format(new Date(iso))
@@ -180,9 +181,22 @@ export function BillingPage() {
                               }
                             />
                           ) : (
-                            <button className="text-muted-foreground hover:text-white transition">
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
+                            <ActionDropdown
+                              items={[
+                                {
+                                  label: 'Download Invoice PDF',
+                                  onClick: () => {
+                                    alert(`Downloading PDF for invoice ${inv.description}`)
+                                  },
+                                },
+                                {
+                                  label: 'Copy Invoice Ref',
+                                  onClick: () => {
+                                    navigator.clipboard.writeText(inv.id)
+                                  },
+                                },
+                              ]}
+                            />
                           )}
                         </td>
                       </tr>
@@ -298,10 +312,23 @@ export function BillingPage() {
                             {capitalize(pay.status)}
                           </span>
                         </td>
-                        <td className="px-5 py-4">
-                          <button className="text-muted-foreground hover:text-white transition">
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
+                        <td className="px-5 py-4 text-right">
+                          <ActionDropdown
+                            items={[
+                              {
+                                label: 'Download Payment Receipt',
+                                onClick: () => {
+                                  alert(`Downloading receipt for transaction ${pay.transactionId}`)
+                                },
+                              },
+                              {
+                                label: 'Copy Transaction Ref',
+                                onClick: () => {
+                                  navigator.clipboard.writeText(pay.transactionId)
+                                },
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     ))}
