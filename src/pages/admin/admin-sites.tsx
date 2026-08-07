@@ -70,7 +70,7 @@ export function AdminSites() {
   const statusFilter: StatusFilter = statusFilters.includes(statusParam as StatusFilter)
     ? (statusParam as StatusFilter)
     : 'all'
-  const nodeFilter = searchParams.get('node') ?? 'all'
+  const nodeFilter = searchParams.get('node') ?? searchParams.get('nodeId') ?? 'all'
 
   useEffect(() => {
     if (!supabase) return
