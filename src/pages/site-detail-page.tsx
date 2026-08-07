@@ -254,9 +254,18 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             <button className="text-muted-foreground hover:text-white transition">
               <Edit2 className="h-3.5 w-3.5" />
             </button>
-            <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white select-none shrink-0">
-              W
-            </span>
+            <button
+              onClick={() => {
+                const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+              }}
+              title="Open WordPress Admin Dashboard"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0073aa] hover:bg-[#005177] text-white text-xs font-semibold transition shadow"
+            >
+              <span className="font-serif font-bold text-xs">W</span>
+              WP-Admin
+              <ExternalLink className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
@@ -349,14 +358,14 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   <tr className="bg-[#121214] border-b border-[#232328] text-[10px] uppercase text-muted-foreground font-semibold">
                     <th className="px-4 py-2.5">Username</th>
                     <th className="px-4 py-2.5">Home Directory</th>
-                    <th className="px-4 py-2.5 w-20"></th>
+                    <th className="px-4 py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#232328] text-white">
-                  <tr>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono truncate">{ftpUsername}</span>
+                <tbody>
+                  <tr className="border-b border-[#232328] last:border-none font-mono">
+                    <td className="px-4 py-3 text-white">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{ftpUsername}</span>
                         <button
                           className="text-muted-foreground hover:text-white shrink-0"
                           onClick={() => handleCopy(ftpUsername)}
@@ -365,20 +374,26 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono truncate">{site.homeDirectory}</span>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{site.document_root}</span>
                         <button
                           className="text-muted-foreground hover:text-white shrink-0"
-                          onClick={() => handleCopy(site.homeDirectory)}
+                          onClick={() => handleCopy(site.document_root)}
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button className="text-muted-foreground hover:text-white mr-2">✏️</button>
-                      <button className="text-muted-foreground hover:text-red-500">🗑️</button>
+                      <div className="flex items-center justify-end gap-2 text-muted-foreground">
+                        <button className="hover:text-white">
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button className="hover:text-red-400">
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -386,13 +401,13 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             </div>
           </div>
 
-          {/* Application, Redis, IP Address Grid */}
+          {/* Sub Grid for Application, Redis, IP */}
           <div className="grid gap-6 md:grid-cols-3">
             {/* Application */}
-            <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
+            <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4 text-xs flex flex-col justify-between">
+              <div className="space-y-4">
                 <div className="flex items-center gap-2 font-semibold text-white">
-                  <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white">
+                  <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center text-[10px] font-bold font-serif text-white shrink-0">
                     W
                   </span>
                   Application
@@ -407,17 +422,31 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  The option to view the password has expired. If you have forgotten your password or need a new one,
-                  you may use your site's "Forgot Password" feature to reset your password using the email address you
-                  provided.
+                  Click below to log directly into your WordPress Admin Dashboard. You can also use WordPress's "Forgot Password" feature to reset your admin password if needed.
                 </p>
               </div>
-              <button
-                className="w-full py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white text-center transition"
-                onClick={() => window.open('https://wordpress.org', '_blank', 'noopener,noreferrer')}
-              >
-                Site login
-              </button>
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  className="w-full py-2 bg-[#5c4df0] hover:bg-[#4d3fe0] rounded text-xs font-semibold text-white text-center transition flex items-center justify-center gap-2 shadow"
+                  onClick={() => {
+                    const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                    window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                  }}
+                >
+                  <span className="font-serif font-bold text-xs">W</span>
+                  Open WP-Admin Dashboard
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="w-full py-1.5 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] rounded text-[11px] font-medium text-white/80 text-center transition"
+                  onClick={() => {
+                    const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                    window.open(`http://co-s1.serverpanel.com/~maxmark/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                  }}
+                >
+                  Staging Temp Login (cPanel Direct)
+                </button>
+              </div>
             </div>
 
             {/* Redis */}
