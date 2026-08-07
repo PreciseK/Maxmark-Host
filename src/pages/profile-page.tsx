@@ -134,6 +134,7 @@ export function ProfilePage() {
         })
         await supabase.from('user_profiles').upsert({
           user_id: session.user.id,
+          display_name: fullName,
           full_name: fullName,
           phone: phoneNumber,
           company: companyName,
