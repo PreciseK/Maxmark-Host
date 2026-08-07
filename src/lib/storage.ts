@@ -82,23 +82,18 @@ export async function getChatAttachmentUrl(
 }
 
 export async function uploadAvatar(supabase: SupabaseClient, file: File): Promise<string> {
-  const { uploadUrl, publicUrl } = await invokeStorage<{
-    uploadUrl: string
-    publicUrl: string
-  }>(supabase, {
-    purpose: 'avatar-upload',
-    contentType: file.type,
-    contentLength: file.size,
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = (err) => reject(err)
+    reader.readAsDataURL(file)
   })
 
-  const putResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
+  const { publicUrl } = await invokeStorage<{ publicUrl: string }>(supabase, {
+    purpose: 'avatar-upload-direct',
+    contentType: file.type || 'image/png',
+    base64Data,
   })
-  if (!putResponse.ok) {
-    throw new Error(`Avatar upload failed (${putResponse.status})`)
-  }
 
   return publicUrl
 }

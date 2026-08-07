@@ -82,3 +82,27 @@ export async function presignGet(
 
   return signed.url
 }
+
+/** Direct server-side PUT object to R2 (bypasses browser CORS preflight). */
+export async function putObjectR2(
+  bucket: string,
+  key: string,
+  contentType: string,
+  body: Uint8Array,
+): Promise<string> {
+  const client = getR2Client()
+  const url = `${bucketEndpoint(bucket)}/${encodeKeyPath(key)}`
+  const response = await client.fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType,
+      'Content-Length': String(body.byteLength),
+    },
+    body,
+  })
+  if (!response.ok) {
+    throw new Error(`R2 PUT failed with status ${response.status}`)
+  }
+  return url
+}
+

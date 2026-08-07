@@ -11,7 +11,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@4'
 
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts'
-import { presignGet, presignPut } from '../_shared/r2.ts'
+import { presignGet, presignPut, putObjectR2 } from '../_shared/r2.ts'
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // 10 MB
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024 // 2 MB
@@ -48,6 +48,11 @@ const bodySchema = z.discriminatedUnion('purpose', [
     purpose: z.literal('avatar-upload'),
     contentType: z.string().min(1),
     contentLength: z.number().int().positive().max(MAX_AVATAR_BYTES),
+  }),
+  z.object({
+    purpose: z.literal('avatar-upload-direct'),
+    contentType: z.string().min(1),
+    base64Data: z.string().min(1),
   }),
 ])
 
@@ -208,6 +213,28 @@ async function avatarUpload(
   return { uploadUrl, publicUrl }
 }
 
+async function avatarUploadDirect(
+  userId: string,
+  body: Extract<Body, { purpose: 'avatar-upload-direct' }>,
+) {
+  if (!AVATAR_CONTENT_TYPES.has(body.contentType)) {
+    throw new StorageError('Unsupported avatar type', 400)
+  }
+  const rawBase64 = body.base64Data.replace(/^data:[^;]+;base64,/, '')
+  const binaryString = atob(rawBase64)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  if (bytes.byteLength > MAX_AVATAR_BYTES) {
+    throw new StorageError('Avatar image exceeds 2 MB limit', 400)
+  }
+  const key = `avatars/${userId}.${extensionFor(body.contentType)}`
+  await putObjectR2(requireEnv('R2_PUBLIC_BUCKET'), key, body.contentType, bytes)
+  const publicUrl = `${requireEnv('R2_PUBLIC_BASE_URL').replace(/\/$/, '')}/${key}?v=${Date.now()}`
+  return { publicUrl }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -271,6 +298,8 @@ Deno.serve(async (request) => {
         })
       case 'avatar-upload':
         return jsonResponse({ success: true, data: await avatarUpload(user.id, body) })
+      case 'avatar-upload-direct':
+        return jsonResponse({ success: true, data: await avatarUploadDirect(user.id, body) })
     }
   } catch (error) {
     if (error instanceof StorageError) {
