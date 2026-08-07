@@ -209,7 +209,7 @@ async function avatarUpload(
     body.contentLength,
     600,
   )
-  const publicUrl = `${requireEnv('R2_PUBLIC_BASE_URL').replace(/\/$/, '')}/${key}?v=${Date.now()}`
+  const publicUrl = await presignGet(requireEnv('R2_PUBLIC_BUCKET'), key, 604800)
   return { uploadUrl, publicUrl }
 }
 
@@ -231,7 +231,7 @@ async function avatarUploadDirect(
   }
   const key = `avatars/${userId}.${extensionFor(body.contentType)}`
   await putObjectR2(requireEnv('R2_PUBLIC_BUCKET'), key, body.contentType, bytes)
-  const publicUrl = `${requireEnv('R2_PUBLIC_BASE_URL').replace(/\/$/, '')}/${key}?v=${Date.now()}`
+  const publicUrl = await presignGet(requireEnv('R2_PUBLIC_BUCKET'), key, 604800)
   return { publicUrl }
 }
 
