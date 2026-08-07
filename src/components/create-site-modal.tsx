@@ -1,5 +1,6 @@
 import { startTransition, useDeferredValue, useState, type FormEvent } from 'react'
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Database,
@@ -199,7 +200,13 @@ export function CreateSiteModal({
                   under `/maxmark_sites/{normalizedPreview || 'client-site.com'}`.
                 </p>
                 {errorMessage ? (
-                  <p className="text-[11px] font-medium text-amber-500">{errorMessage}</p>
+                  <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-300">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div className="space-y-1 text-xs">
+                      <p className="font-semibold text-amber-200">Provisioning Error</p>
+                      <p className="text-amber-300/90 leading-relaxed text-[11px]">{errorMessage}</p>
+                    </div>
+                  </div>
                 ) : null}
               </div>
 

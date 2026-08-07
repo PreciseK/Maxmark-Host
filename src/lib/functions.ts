@@ -26,7 +26,20 @@ async function invoke<T>(
   )
 
   if (error) {
-    throw new Error(`${name} failed: ${error.message}`)
+    let serverErrorMessage: string | null = null
+    try {
+      if ('context' in error && error.context && typeof (error.context as Response).json === 'function') {
+        const bodyJson = await (error.context as Response).json()
+        if (bodyJson && typeof bodyJson === 'object' && 'error' in bodyJson && typeof bodyJson.error === 'string') {
+          serverErrorMessage = bodyJson.error
+        }
+      }
+    } catch {
+      // Ignore if context json parsing fails
+    }
+
+    const finalMessage = serverErrorMessage || data?.error || error.message
+    throw new Error(finalMessage)
   }
 
   if (!data?.success || data.data === undefined) {
