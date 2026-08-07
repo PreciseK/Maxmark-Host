@@ -22,7 +22,7 @@ export interface AdminDnsRecord {
 export async function fetchAllAdminDomains(supabase: SupabaseClient): Promise<AdminDomainRecord[]> {
   const { data, error } = await supabase
     .from('registered_domains')
-    .select('*, profiles(email)')
+    .select('*, profiles(full_name, display_name)')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -48,7 +48,7 @@ export async function fetchAllAdminDomains(supabase: SupabaseClient): Promise<Ad
   }
 
   return (data ?? []).map((r: Record<string, unknown>) => {
-    const profile = r.profiles as { email?: string } | undefined
+    const profile = r.profiles as { full_name?: string; display_name?: string } | undefined
     return {
       id: r.id as string,
       domain: r.domain as string,
@@ -59,7 +59,7 @@ export async function fetchAllAdminDomains(supabase: SupabaseClient): Promise<Ad
       priceNgnYearly: Number(r.price_ngn_yearly),
       createdAt: r.created_at as string,
       userId: r.user_id as string,
-      userEmail: profile?.email ?? 'Unknown User',
+      userEmail: profile?.full_name || profile?.display_name || 'Unknown User',
     }
   })
 }
