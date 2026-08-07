@@ -305,6 +305,31 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
         </div>
       </div>
 
+      {/* Pre-DNS / Staging Banner Notice */}
+      <div className="bg-[#161619] border border-amber-500/30 rounded-lg p-4 text-xs text-amber-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0 mt-0.5 sm:mt-0">
+            <Globe className="h-4 w-4" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-semibold text-white">DNS Pointing & Pre-Launch Staging Access</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              If your domain <span className="font-mono text-amber-300">{site.site_domain}</span> hasn't been pointed to Maxmark nameservers (<span className="text-white font-mono">ns1.maxmark.com.ng</span> & <span className="text-white font-mono">ns2.maxmark.com.ng</span>) yet, production WP-Admin URLs won't resolve. Use the <strong className="text-white">Staging Temp Login</strong> button below to access WordPress instantly!
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+            window.open(`http://co-s1.serverpanel.com/~maxmark/${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+          }}
+          className="shrink-0 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-semibold rounded transition flex items-center gap-1.5"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Launch Staging WP-Admin
+        </button>
+      </div>
+
       {copiedText && (
         <div className="fixed bottom-5 right-5 bg-[#161619] border border-emerald-500/30 text-emerald-400 text-xs px-4 py-2 rounded-md shadow-lg animate-bounce select-none">
           Copied "{copiedText}" to clipboard
