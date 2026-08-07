@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Bell,
   Check,
@@ -62,6 +62,35 @@ export function ProfilePage() {
   })
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!supabase || !session?.user?.id) return
+    let active = true
+
+    async function loadProfile() {
+      try {
+        const { data } = await supabase!
+          .from('user_profiles')
+          .select('full_name, phone, company, support_pin, avatar_url')
+          .eq('user_id', session!.user.id)
+          .maybeSingle()
+        if (!active || !data) return
+        if (data.full_name) setFullName(data.full_name as string)
+        if (data.phone) setPhoneNumber(data.phone as string)
+        if (data.company) setCompanyName(data.company as string)
+        if (data.support_pin) setCurrentPin(data.support_pin as string)
+        if (data.avatar_url && !avatarUrl) setAvatarUrl(data.avatar_url as string)
+      } catch {
+        // ignore load errors
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      active = false
+    }
+  }, [session, avatarUrl, setAvatarUrl])
 
   async function handleAvatarChange(files: FileList | null) {
     const file = files?.[0]
