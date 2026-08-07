@@ -102,11 +102,14 @@ export function ProfilePage() {
       setAvatarUrl(publicUrl)
       // Save to user_profiles
       if (session?.user?.id) {
-        await supabase.from('user_profiles').upsert({
-          user_id: session.user.id,
-          avatar_url: publicUrl,
-          updated_at: new Date().toISOString(),
-        })
+        await supabase.from('user_profiles').upsert(
+          {
+            user_id: session.user.id,
+            avatar_url: publicUrl,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' },
+        )
       }
       setFeedback({ tone: 'success', text: 'Profile picture updated successfully.' })
     } catch (err) {
@@ -132,14 +135,17 @@ export function ProfilePage() {
             company: companyName,
           },
         })
-        await supabase.from('user_profiles').upsert({
-          user_id: session.user.id,
-          display_name: fullName,
-          full_name: fullName,
-          phone: phoneNumber,
-          company: companyName,
-          updated_at: new Date().toISOString(),
-        })
+        await supabase.from('user_profiles').upsert(
+          {
+            user_id: session.user.id,
+            display_name: fullName,
+            full_name: fullName,
+            phone: phoneNumber,
+            company: companyName,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' },
+        )
       }
       setFeedback({ tone: 'success', text: 'Personal information updated successfully.' })
     } catch (err) {
@@ -187,11 +193,14 @@ export function ProfilePage() {
     const newPin = String(Math.floor(100000 + Math.random() * 900000))
     setCurrentPin(newPin)
     if (supabase && session?.user?.id) {
-      void supabase.from('user_profiles').upsert({
-        user_id: session.user.id,
-        support_pin: newPin,
-        updated_at: new Date().toISOString(),
-      })
+      void supabase.from('user_profiles').upsert(
+        {
+          user_id: session.user.id,
+          support_pin: newPin,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      )
     }
     setFeedback({ tone: 'success', text: 'New 6-digit Support PIN generated.' })
   }
