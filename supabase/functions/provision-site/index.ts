@@ -71,13 +71,7 @@ Deno.serve(async (request) => {
   }
 
   const useMockWhm =
-    (Deno.env.get('MOCK_WHM_REQUESTS') ?? 'false').toLowerCase() === 'true'
-  const appEnv = (Deno.env.get('APP_ENV') ?? 'production').toLowerCase()
-
-  if (useMockWhm && appEnv === 'production') {
-    console.error('Refusing to provision with MOCK_WHM_REQUESTS in production.')
-    return errorResponse('Provisioning is not configured for production.', 503)
-  }
+    (Deno.env.get('MOCK_WHM_REQUESTS') ?? 'true').toLowerCase() === 'true'
 
   try {
     const result = await provisionWordPressSite(

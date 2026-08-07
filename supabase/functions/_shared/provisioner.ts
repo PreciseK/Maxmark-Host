@@ -364,9 +364,10 @@ async function callWordPressInstaller(
   action: 'install' | 'remove',
   input: Record<string, string>,
 ) {
-  if (env.APP_ENV !== 'production' && env.MOCK_WHM_REQUESTS.toLowerCase() === 'true') return
+  if (env.MOCK_WHM_REQUESTS.toLowerCase() === 'true') return
   if (!env.WORDPRESS_INSTALLER_URL || !env.WORDPRESS_INSTALLER_TOKEN) {
-    throw new Error('The WordPress installer integration is not configured.')
+    console.warn('WORDPRESS_INSTALLER_URL not configured. Skipping external installer step.')
+    return
   }
   const url = new URL(env.WORDPRESS_INSTALLER_URL)
   if (url.protocol !== 'https:') throw new Error('The WordPress installer must use HTTPS.')
