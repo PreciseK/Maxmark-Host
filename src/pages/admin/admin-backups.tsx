@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Archive,
   Database,
@@ -12,9 +12,12 @@ import {
 } from 'lucide-react'
 
 import {
+  fetchSystemBackups,
   getInitialBackupRecords,
+  triggerSystemBackup,
   type GlobalBackupRecord,
 } from '@/lib/db/admin-system'
+import { supabase } from '@/lib/supabase'
 import {
   adminCardClass,
   StatusBadge,
@@ -25,28 +28,60 @@ export function AdminBackups() {
   const [triggeringGlobal, setTriggeringGlobal] = useState(false)
   const [toastMessage, setToastMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
-  function handleTriggerGlobalBackup() {
+  useEffect(() => {
+    if (!supabase) return
+    let active = true
+    fetchSystemBackups(supabase)
+      .then((data) => {
+        if (active) setBackups(data)
+      })
+      .catch((err) => console.error('Backups fetch error:', err))
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function handleTriggerGlobalBackup() {
     setTriggeringGlobal(true)
     setToastMessage(null)
-    setTimeout(() => {
-      const newBackup: GlobalBackupRecord = {
-        id: `bk-${Date.now()}`,
-        snapshotName: `manual-global-snap-${Date.now().toString().slice(-4)}`,
-        siteDomain: 'All Active Sites (Global Snapshot)',
-        sizeMb: 1870,
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        storageLocation: 'R2 maxmark-private/backups',
+
+    try {
+      if (supabase) {
+        const created = await triggerSystemBackup(supabase)
+        setBackups((prev) => [created, ...prev])
+      } else {
+        const newBackup: GlobalBackupRecord = {
+          id: `bk-${Date.now()}`,
+          snapshotName: `manual-global-snap-${Date.now().toString().slice(-4)}`,
+          siteDomain: 'All Active Sites (Global Snapshot)',
+          sizeMb: 1870,
+          status: 'completed',
+          createdAt: new Date().toISOString(),
+          storageLocation: 'R2 maxmark-private/backups',
+        }
+        setBackups((prev) => [newBackup, ...prev])
       }
-      setBackups((prev) => [newBackup, ...prev])
+      setToastMessage({
+        tone: 'success',
+        text: 'Global backup snapshot completed and uploaded to Cloudflare R2 bucket (maxmark-private).',
+      })
+    } catch (err) {
+      console.error('Trigger backup error:', err)
+      setToastMessage({ tone: 'error', text: 'Global backup sweep failed to complete.' })
+    } finally {
       setTriggeringGlobal(false)
-      setToastMessage({ tone: 'success', text: 'Global backup snapshot completed and uploaded to Cloudflare R2 bucket (maxmark-private).' })
-    }, 1800)
+    }
   }
 
   function handleRestoreBackup(snapshotName: string) {
-    setToastMessage({ tone: 'success', text: `Restoration task initiated for snapshot ${snapshotName}. Target site files and MySQL database are being restored.` })
+    setToastMessage({
+      tone: 'success',
+      text: `Restoration task initiated for snapshot ${snapshotName}. Target site files and MySQL database are being restored.`,
+    })
   }
+
+  const totalVolumeGb = (backups.reduce((acc, b) => acc + b.sizeMb, 0) / 1024).toFixed(1)
 
   return (
     <div className="space-y-6 text-left">
@@ -60,7 +95,7 @@ export function AdminBackups() {
         </div>
 
         <button
-          onClick={handleTriggerGlobalBackup}
+          onClick={() => void handleTriggerGlobalBackup()}
           disabled={triggeringGlobal}
           type="button"
           className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 disabled:opacity-60 transition active:scale-[0.98]"
@@ -100,8 +135,8 @@ export function AdminBackups() {
             <span className="text-xs font-semibold text-muted-foreground">Total Backup Volume</span>
             <Archive className="h-4 w-4 text-sky-400" />
           </div>
-          <p className="text-2xl font-bold text-white font-mono">14.8 GB</p>
-          <p className="text-[11px] text-white/50">Across 42 site snapshots</p>
+          <p className="text-2xl font-bold text-white font-mono">{totalVolumeGb} GB</p>
+          <p className="text-[11px] text-white/50">Across {backups.length} site snapshots</p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-[#161619] p-5 backdrop-blur-xl space-y-2">

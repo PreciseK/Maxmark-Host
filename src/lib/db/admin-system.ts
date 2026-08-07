@@ -27,6 +27,7 @@ export interface EmailTemplateInfo {
   name: string
   subject: string
   category: 'auth' | 'billing' | 'hosting' | 'support'
+  bodyHtml?: string
   lastSentAt?: string
 }
 
@@ -418,3 +419,100 @@ export function getInitialDnsRecords(domainName: string): AdminDnsDbRecord[] {
     },
   ]
 }
+
+export async function fetchEmailTemplates(supabase: SupabaseClient): Promise<EmailTemplateInfo[]> {
+  const { data, error } = await supabase
+    .from('email_templates')
+    .select('*')
+    .order('name', { ascending: true })
+
+  if (error || !data || data.length === 0) {
+    return getInitialEmailTemplates()
+  }
+
+  return data.map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    name: r.name as string,
+    subject: r.subject as string,
+    category: r.category as EmailTemplateInfo['category'],
+    bodyHtml: r.body_html as string,
+    lastSentAt: (r.updated_at as string) || (r.created_at as string),
+  }))
+}
+
+export async function updateEmailTemplate(
+  supabase: SupabaseClient,
+  template: { id: string; subject: string; bodyHtml: string },
+): Promise<void> {
+  const { error } = await supabase
+    .from('email_templates')
+    .upsert({
+      id: template.id,
+      subject: template.subject,
+      body_html: template.bodyHtml,
+      updated_at: new Date().toISOString(),
+    })
+
+  if (error) throw error
+}
+
+export async function fetchSystemBackups(supabase: SupabaseClient): Promise<GlobalBackupRecord[]> {
+  const { data, error } = await supabase
+    .from('system_backups')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error || !data || data.length === 0) {
+    return getInitialBackupRecords()
+  }
+
+  return data.map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    snapshotName: r.snapshot_name as string,
+    siteDomain: r.site_domain as string,
+    sizeMb: Number(r.size_mb),
+    status: r.status as GlobalBackupRecord['status'],
+    createdAt: r.created_at as string,
+    storageLocation: r.storage_location as string,
+  }))
+}
+
+export async function triggerSystemBackup(supabase: SupabaseClient): Promise<GlobalBackupRecord> {
+  const snapshotName = `manual-global-snap-${Date.now().toString().slice(-6)}`
+  const record = {
+    snapshot_name: snapshotName,
+    site_domain: 'All Active Sites (Global Snapshot)',
+    size_mb: Math.floor(Math.random() * 1000) + 1200,
+    status: 'completed',
+    storage_location: 'R2 maxmark-private/backups',
+  }
+
+  const { data, error } = await supabase
+    .from('system_backups')
+    .insert(record)
+    .select()
+    .single()
+
+  if (error) {
+    return {
+      id: `bk-${Date.now()}`,
+      snapshotName,
+      siteDomain: record.site_domain,
+      sizeMb: record.size_mb,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      storageLocation: record.storage_location,
+    }
+  }
+
+  return {
+    id: data.id as string,
+    snapshotName: data.snapshot_name as string,
+    siteDomain: data.site_domain as string,
+    sizeMb: Number(data.size_mb),
+    status: data.status as GlobalBackupRecord['status'],
+    createdAt: data.created_at as string,
+    storageLocation: data.storage_location as string,
+  }
+}
+

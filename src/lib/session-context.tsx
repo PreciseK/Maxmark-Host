@@ -50,16 +50,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setIsAdmin((roleRes.data?.length ?? 0) > 0)
           setAvatarUrl((profileRes.data?.avatar_url as string | null | undefined) ?? null)
-          setAccountId((profileRes.data?.account_id as string | null | undefined) ?? null)
-          setSupportPin((profileRes.data?.support_pin as string | null | undefined) ?? null)
+          
+          const rawAcc = profileRes.data?.account_id as string | null | undefined
+          const rawPin = profileRes.data?.support_pin as string | null | undefined
+          
+          const defaultAccId = `MAX-${next.user.id.replace(/-/g, '').substring(0, 8).toUpperCase()}`
+          const defaultPin = String(Math.abs(next.user.id.split('-').reduce((acc, char) => acc + char.charCodeAt(0), 0) * 123456) % 1000000).padStart(6, '7')
+          
+          setAccountId(rawAcc ?? defaultAccId)
+          setSupportPin(rawPin ?? defaultPin)
         }
       } catch (error) {
         console.warn('Admin role lookup failed; treating as non-admin:', error)
         if (!cancelled) {
           setIsAdmin(false)
           setAvatarUrl(null)
-          setAccountId(null)
-          setSupportPin(null)
+          const defaultAccId = `MAX-${next.user.id.replace(/-/g, '').substring(0, 8).toUpperCase()}`
+          const defaultPin = String(Math.abs(next.user.id.split('-').reduce((acc, char) => acc + char.charCodeAt(0), 0) * 123456) % 1000000).padStart(6, '7')
+          setAccountId(defaultAccId)
+          setSupportPin(defaultPin)
         }
       } finally {
         if (!cancelled) setRoleResolved(true)

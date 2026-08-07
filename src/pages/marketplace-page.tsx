@@ -209,15 +209,16 @@ export function MarketplacePage({
   return (
     <div className="space-y-6">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-        <Card className="relative overflow-hidden bg-[linear-gradient(135deg,rgba(33,30,24,0.98),rgba(28,57,52,0.92)_52%,rgba(217,188,117,0.72))] text-white">
+        <Card className="relative overflow-hidden border border-[#232328] bg-[#161619] text-white shadow-2xl">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(92,77,240,0.22),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(92,77,240,0.12),transparent_35%)]" />
           <CardHeader className="relative z-10">
-            <Badge className="w-fit border-white/10 bg-white/10 text-white" variant="secondary">
+            <Badge className="w-fit border-violet-500/30 bg-violet-500/10 text-violet-300" variant="secondary">
               Maxmark Marketplace
             </Badge>
-            <CardTitle className="max-w-3xl text-4xl text-white sm:text-5xl">
+            <CardTitle className="max-w-3xl text-3xl font-bold text-white sm:text-4xl">
               Premium plugins and themes, tiered with your hosting plan.
             </CardTitle>
-            <CardDescription className="max-w-2xl text-white/72">
+            <CardDescription className="max-w-2xl text-white/70 text-sm leading-relaxed">
               Items at or below your plan&apos;s tier are included — claim and download
               instantly. Anything above your tier can be purchased individually, with
               ownership tracking and repeat downloads either way.
@@ -225,28 +226,28 @@ export function MarketplacePage({
           </CardHeader>
           <CardContent className="relative z-10 flex flex-col gap-5">
             <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/58">
+              <div className="rounded-2xl border border-[#232328] bg-[#121214] p-4">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
                   Live products
                 </p>
-                <p className="mt-2 font-display text-3xl">{plugins.length}</p>
+                <p className="mt-1 font-mono text-2xl font-bold text-white">{plugins.length}</p>
               </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/58">
+              <div className="rounded-2xl border border-[#232328] bg-[#121214] p-4">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
                   Owned licenses
                 </p>
-                <p className="mt-2 font-display text-3xl">{ownedPurchases.length}</p>
+                <p className="mt-1 font-mono text-2xl font-bold text-emerald-400">{ownedPurchases.length}</p>
               </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/58">
+              <div className="rounded-2xl border border-[#232328] bg-[#121214] p-4">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
                   Ready-to-install sites
                 </p>
-                <p className="mt-2 font-display text-3xl">{sites.length}</p>
+                <p className="mt-1 font-mono text-2xl font-bold text-violet-300">{sites.length}</p>
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               {firstSite ? (
-                <Button asChild className="bg-white text-primary hover:bg-white/90">
+                <Button asChild className="bg-[#5c4df0] text-white hover:bg-[#6c5df5]">
                   <Link to={`/sites/${firstSite.id}`}>
                     Open a site dashboard
                     <ExternalLink className="h-4 w-4" />
@@ -256,11 +257,11 @@ export function MarketplacePage({
               {userTier === 0 ? (
                 <Button
                   asChild
-                  className="border-white/20 bg-white/10 text-white hover:bg-white/16"
+                  className="border-[#232328] bg-[#1c1c20] text-white hover:bg-[#232328]"
                   variant="outline"
                 >
                   <Link to="/plans">
-                    <Lock className="h-4 w-4" />
+                    <Lock className="h-4 w-4 text-violet-400" />
                     Subscribe to unlock the marketplace
                   </Link>
                 </Button>
@@ -281,39 +282,38 @@ export function MarketplacePage({
               )}
             </div>
           </CardContent>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(233,202,124,0.26),transparent_22%)]" />
         </Card>
 
-        <Card>
+        <Card className="border border-[#232328] bg-[#161619] text-white">
           <CardHeader>
-            <CardTitle>Install flow</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-white text-lg font-bold">Install flow</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
               Keep the checkout and download inside Maxmark, then hand off to WordPress
               for the final upload.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {[
               'Buy a plugin and instantly receive a licensed ZIP package.',
               'Open wp-admin with Magic Login from the site detail page.',
               'Upload the ZIP via Plugins > Add New > Upload Plugin in WordPress.',
             ].map((step, index) => (
               <div
-                className="flex items-start gap-3 rounded-[24px] border border-white/80 bg-white/78 p-4"
+                className="flex items-start gap-3 rounded-2xl border border-[#232328] bg-[#121214] p-3.5"
                 key={step}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5c4df0]/20 text-xs font-bold text-violet-300">
                   {index + 1}
                 </div>
-                <p className="text-sm text-muted-foreground">{step}</p>
+                <p className="text-xs text-white/80 leading-relaxed">{step}</p>
               </div>
             ))}
-            <div className="rounded-[24px] border border-primary/10 bg-primary/5 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <ShieldCheck className="h-4 w-4 text-primary" />
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3.5">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
                 Licensed delivery
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-1 text-xs text-white/70 leading-relaxed">
                 Each package includes marketplace metadata and a license file so the
                 ownership trail is preserved from checkout to upload.
               </p>
@@ -452,93 +452,95 @@ export function MarketplacePage({
             const isBusy = busyPluginId === plugin.id
 
           return (
-            <Card className="overflow-hidden" key={plugin.id}>
+            <Card className="overflow-hidden border border-[#232328] bg-[#161619] text-white shadow-xl" key={plugin.id}>
               <div
-                className="h-44 w-full"
+                className="h-36 w-full opacity-80"
                 style={{
                   background: plugin.gradient,
                 }}
               />
               <CardHeader className="-mt-12 relative z-10">
-                <div className="rounded-[24px] border border-white/80 bg-white/88 p-5 backdrop-blur">
+                <div className="rounded-2xl border border-[#232328] bg-[#121214]/95 p-5 backdrop-blur-xl">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{plugin.category}</Badge>
-                        <Badge variant="outline">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="border-violet-500/30 bg-violet-500/10 text-violet-300" variant="secondary">
+                          {plugin.category}
+                        </Badge>
+                        <Badge className="border-white/10 bg-white/5 text-white/80" variant="outline">
                           {plugin.productType === 'theme' ? 'Theme' : 'Plugin'} · {tierLabel(plugin.tier)}
                         </Badge>
-                        {purchase ? <Badge variant="success">Owned</Badge> : null}
+                        {purchase ? <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400">Owned</Badge> : null}
                         {!purchase && isIncluded(plugin) ? (
-                          <Badge variant="success">Included in your plan</Badge>
+                          <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400">Included in your plan</Badge>
                         ) : null}
                       </div>
-                      <CardTitle className="mt-4 text-3xl">{plugin.name}</CardTitle>
-                      <CardDescription className="mt-2 text-base">
+                      <CardTitle className="mt-3 text-2xl font-bold text-white">{plugin.name}</CardTitle>
+                      <CardDescription className="mt-1 text-sm text-white/70">
                         {plugin.tagline}
                       </CardDescription>
                     </div>
                     <div className="text-right">
                       {isIncluded(plugin) ? (
                         <>
-                          <p className="font-display text-3xl text-foreground">Included</p>
-                          <p className="text-sm text-muted-foreground line-through">
+                          <p className="font-mono text-2xl font-bold text-emerald-400">Included</p>
+                          <p className="text-xs text-muted-foreground line-through">
                             {formatCurrency(plugin.priceNgn)}
                           </p>
                         </>
                       ) : (
                         <>
-                          <p className="font-display text-3xl text-foreground">
+                          <p className="font-mono text-2xl font-bold text-white">
                             {formatCurrency(plugin.priceNgn)}
                           </p>
-                          <p className="text-sm text-muted-foreground">single-site commercial</p>
+                          <p className="text-xs text-muted-foreground">commercial license</p>
                         </>
                       )}
                     </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <p className="text-sm text-muted-foreground">{plugin.description}</p>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-white/75 leading-relaxed">{plugin.description}</p>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[24px] border border-white/80 bg-white/78 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <div className="rounded-2xl border border-[#232328] bg-[#121214] p-3.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
                       Version
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">
+                    <p className="mt-1 text-xs font-mono font-semibold text-white">
                       {plugin.version}
                     </p>
                   </div>
-                  <div className="rounded-[24px] border border-white/80 bg-white/78 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <div className="rounded-2xl border border-[#232328] bg-[#121214] p-3.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
                       Compatibility
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">
+                    <p className="mt-1 text-xs font-semibold text-white">
                       WP {plugin.requiresWordPress}
                     </p>
-                    <p className="text-sm text-muted-foreground">PHP {plugin.requiresPhp}</p>
+                    <p className="text-[11px] text-muted-foreground">PHP {plugin.requiresPhp}</p>
                   </div>
-                  <div className="rounded-[24px] border border-white/80 bg-white/78 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <div className="rounded-2xl border border-[#232328] bg-[#121214] p-3.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
                       Market signal
                     </p>
-                    <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-foreground">
-                      <Star className="h-4 w-4 fill-current text-accent" />
+                    <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-400">
+                      <Star className="h-3.5 w-3.5 fill-current text-amber-400" />
                       {plugin.rating.toFixed(1)}
                     </p>
-                    <p className="text-sm text-muted-foreground">{plugin.installsLabel}</p>
+                    <p className="text-[11px] text-muted-foreground">{plugin.installsLabel}</p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {plugin.highlights.map((highlight) => (
                     <div
-                      className="flex items-start gap-3 rounded-[20px] border border-white/75 bg-white/72 px-4 py-3"
+                      className="flex items-start gap-2.5 rounded-xl border border-[#232328] bg-[#121214] px-3.5 py-2.5"
                       key={highlight}
                     >
-                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <p className="text-sm text-muted-foreground">{highlight}</p>
+                      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-400" />
+                      <p className="text-xs text-white/80 leading-relaxed">{highlight}</p>
                     </div>
                   ))}
                 </div>

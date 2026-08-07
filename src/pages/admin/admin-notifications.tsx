@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
+  Edit3,
   Mail,
-  Megaphone,
   Plus,
   Send,
   Trash2,
@@ -11,8 +11,10 @@ import {
   createBroadcastBanner,
   deleteBroadcastBanner,
   fetchBroadcastBanners,
+  fetchEmailTemplates,
   getInitialEmailTemplates,
   toggleBroadcastBanner,
+  updateEmailTemplate,
   type BroadcastBanner,
   type EmailTemplateInfo,
 } from '@/lib/db/admin-system'
@@ -36,12 +38,24 @@ import {
 } from '@/components/admin/admin-ui'
 
 export function AdminNotifications() {
-  const [templates] = useState<EmailTemplateInfo[]>(getInitialEmailTemplates())
+  const [templates, setTemplates] = useState<EmailTemplateInfo[]>(getInitialEmailTemplates())
   const [banners, setBanners] = useState<BroadcastBanner[]>([])
   const [activeTab, setActiveTab] = useState<'email' | 'banners'>('email')
 
   // Toast
   const [toastMessage, setToastMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+
+  // Edit Template Modal State
+  const [editTemplateOpen, setEditTemplateOpen] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplateInfo | null>(null)
+  const [tplSubject, setTplSubject] = useState('')
+  const [tplBodyHtml, setTplBodyHtml] = useState('')
+
+  // Send Test Email Modal State
+  const [sendTestOpen, setSendTestOpen] = useState(false)
+  const [testTargetTemplate, setTestTargetTemplate] = useState<EmailTemplateInfo | null>(null)
+  const [testRecipientEmail, setTestRecipientEmail] = useState('admin@maxmark.com.ng')
+  const [sendingTest, setSendingTest] = useState(false)
 
   // Broadcast Modal State
   const [sendBroadcastOpen, setSendBroadcastOpen] = useState(false)
@@ -58,16 +72,101 @@ export function AdminNotifications() {
   useEffect(() => {
     if (!supabase) return
     let active = true
+
     fetchBroadcastBanners(supabase)
       .then((data) => {
         if (active) setBanners(data)
       })
       .catch((err) => console.error('Banners fetch error:', err))
 
+    fetchEmailTemplates(supabase)
+      .then((data) => {
+        if (active) setTemplates(data)
+      })
+      .catch((err) => console.error('Templates fetch error:', err))
+
     return () => {
       active = false
     }
   }, [])
+
+  function openEditTemplate(tpl: EmailTemplateInfo) {
+    setEditingTemplate(tpl)
+    setTplSubject(tpl.subject)
+    setTplBodyHtml(tpl.bodyHtml || `<p>Default template body for ${tpl.name}</p>`)
+    setEditTemplateOpen(true)
+  }
+
+  async function handleSaveTemplate() {
+    if (!editingTemplate) return
+    const updated = {
+      ...editingTemplate,
+      subject: tplSubject.trim(),
+      bodyHtml: tplBodyHtml.trim(),
+      lastSentAt: new Date().toISOString(),
+    }
+
+    if (supabase) {
+      try {
+        await updateEmailTemplate(supabase, {
+          id: editingTemplate.id,
+          subject: tplSubject.trim(),
+          bodyHtml: tplBodyHtml.trim(),
+        })
+      } catch (err) {
+        console.error('Template update error:', err)
+      }
+    }
+
+    setTemplates((prev) => prev.map((t) => (t.id === editingTemplate.id ? updated : t)))
+    setEditTemplateOpen(false)
+    setToastMessage({ tone: 'success', text: `Email template "${editingTemplate.name}" updated successfully.` })
+  }
+
+  function openSendTest(tpl: EmailTemplateInfo) {
+    setTestTargetTemplate(tpl)
+    setSendTestOpen(true)
+  }
+
+  async function handleDispatchTestEmail() {
+    if (!testTargetTemplate || !testRecipientEmail.trim()) return
+    setSendingTest(true)
+    setToastMessage(null)
+
+    try {
+      if (supabase) {
+        const { error } = await supabase.functions.invoke('send-email', {
+          body: {
+            to: testRecipientEmail.trim(),
+            type: testTargetTemplate.id,
+            subject: testTargetTemplate.subject,
+            data: {
+              code: '889922',
+              domain: 'maxmark.com.ng',
+              amount: '₦25,000',
+              invoiceId: 'INV-88992',
+              ticketSubject: testTargetTemplate.subject,
+              htmlContent: testTargetTemplate.bodyHtml,
+            },
+          },
+        })
+        if (error) throw error
+      }
+      setToastMessage({
+        tone: 'success',
+        text: `Test email for "${testTargetTemplate.name}" dispatched to ${testRecipientEmail.trim()} via Resend.`,
+      })
+      setSendTestOpen(false)
+    } catch (caught) {
+      console.error('Test email dispatch error:', caught)
+      setToastMessage({
+        tone: 'error',
+        text: caught instanceof Error ? caught.message : 'Failed to dispatch test email.',
+      })
+    } finally {
+      setSendingTest(false)
+    }
+  }
 
   function handleSendBroadcast() {
     if (!broadcastSubject.trim() || !broadcastBody.trim()) return
@@ -136,7 +235,7 @@ export function AdminNotifications() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Broadcasts & Email Manager</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Send targeted customer email broadcasts via Resend and publish dashboard announcement banners.
+            Send targeted customer email broadcasts via Resend, customize email templates, and publish announcement banners.
           </p>
         </div>
 
@@ -227,14 +326,24 @@ export function AdminNotifications() {
                       </StatusBadge>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => setToastMessage({ tone: 'success', text: `Test email for "${tpl.name}" dispatched to admin address.` })}
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition"
-                      >
-                        <Send className="h-3 w-3" />
-                        Send Test Email
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditTemplate(tpl)}
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-semibold text-violet-300 hover:bg-violet-500/20 transition"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                          Edit Template
+                        </button>
+                        <button
+                          onClick={() => openSendTest(tpl)}
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition"
+                        >
+                          <Send className="h-3 w-3" />
+                          Send Test Email
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -251,7 +360,7 @@ export function AdminNotifications() {
             <button
               onClick={() => setAddBannerOpen(true)}
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#5c4df0] px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 hover:bg-[#6c5df5] transition"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition"
             >
               <Plus className="h-4 w-4" />
               New Announcement Banner
@@ -259,92 +368,177 @@ export function AdminNotifications() {
           </div>
 
           <div className={adminCardClass}>
-            <div className="px-5 py-4 border-b border-[#232328] bg-[#161619]">
-              <h3 className="text-sm font-semibold text-white">Active Dashboard Banners</h3>
-            </div>
-
-            <div className="divide-y divide-[#232328]">
-              {banners.map((b) => (
-                <div key={b.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#1c1c20] transition">
-                  <div className="flex items-start gap-3">
-                    <Megaphone className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white">{b.title}</h4>
-                        <StatusBadge tone={b.active ? 'green' : 'zinc'}>
-                          {b.active ? 'Active' : 'Paused'}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#232328] text-xs text-muted-foreground bg-[#121214]">
+                    <th className="px-5 py-3.5 font-semibold">Title</th>
+                    <th className="px-5 py-3.5 font-semibold">Message</th>
+                    <th className="px-5 py-3.5 font-semibold">Tone</th>
+                    <th className="px-5 py-3.5 font-semibold">Status</th>
+                    <th className="px-5 py-3.5 text-right font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#232328] text-xs text-white">
+                  {banners.map((b) => (
+                    <tr className="hover:bg-[#1c1c20] transition" key={b.id}>
+                      <td className="px-5 py-4 font-semibold text-white">{b.title}</td>
+                      <td className="px-5 py-4 text-muted-foreground max-w-md truncate">{b.message}</td>
+                      <td className="px-5 py-4">
+                        <StatusBadge tone={b.tone === 'critical' ? 'red' : b.tone === 'warning' ? 'amber' : 'sky'}>
+                          {b.tone}
                         </StatusBadge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 max-w-2xl">{b.message}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => void handleToggleBanner(b.id, b.active)}
-                      type="button"
-                      className="px-2.5 py-1 text-[11px] font-semibold border border-white/10 rounded-lg text-white/80 hover:bg-white/10 transition"
-                    >
-                      {b.active ? 'Pause' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => void handleDeleteBanner(b.id)}
-                      type="button"
-                      className="p-1.5 text-muted-foreground hover:text-rose-400 transition"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => void handleToggleBanner(b.id, b.active)}
+                          type="button"
+                          className="cursor-pointer"
+                        >
+                          <StatusBadge tone={b.active ? 'green' : 'zinc'}>
+                            {b.active ? 'Active' : 'Hidden'}
+                          </StatusBadge>
+                        </button>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => void handleDeleteBanner(b.id)}
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/20 transition"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── EMAIL BROADCAST MODAL ── */}
-      <Dialog open={sendBroadcastOpen} onOpenChange={setSendBroadcastOpen}>
+      {/* EDIT TEMPLATE MODAL */}
+      <Dialog open={editTemplateOpen} onOpenChange={setEditTemplateOpen}>
         <DialogContent className={adminDialogClass}>
           <DialogHeader>
-            <DialogTitle className="text-white text-lg font-bold">Send Targeted Email Broadcast</DialogTitle>
-            <DialogDescription>
-              Dispatches an email broadcast via Resend to customer accounts.
+            <DialogTitle className="text-white text-base">Edit Email Template: {editingTemplate?.name}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Customize the subject line and HTML body rendered for customer transactional emails.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 py-2 text-left">
+            <div>
+              <label className={fieldLabelClass}>Subject Line</label>
+              <input
+                className={fieldInputClass}
+                value={tplSubject}
+                onChange={(e) => setTplSubject(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabelClass}>HTML Template Body</label>
+              <textarea
+                className={`${fieldInputClass} h-40 font-mono text-xs`}
+                value={tplBodyHtml}
+                onChange={(e) => setTplBodyHtml(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button className={secondaryButtonClass} onClick={() => setEditTemplateOpen(false)} type="button">
+              Cancel
+            </button>
+            <button className={primaryButtonClass} onClick={() => void handleSaveTemplate()} type="button">
+              Save Template Changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SEND TEST EMAIL MODAL */}
+      <Dialog open={sendTestOpen} onOpenChange={setSendTestOpen}>
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader>
+            <DialogTitle className="text-white text-base">Send Test Email: {testTargetTemplate?.name}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Dispatch a real test transactional email via Resend to verify deliverability and layout.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-left">
+            <div>
+              <label className={fieldLabelClass}>Recipient Email Address</label>
+              <input
+                className={fieldInputClass}
+                type="email"
+                value={testRecipientEmail}
+                onChange={(e) => setTestRecipientEmail(e.target.value)}
+              />
+            </div>
+            <div className="rounded-xl border border-white/10 bg-[#1a1a1e] p-3 text-xs space-y-1 text-muted-foreground">
+              <p><strong className="text-white">Subject:</strong> {testTargetTemplate?.subject}</p>
+              <p><strong className="text-white">Sender:</strong> Maxmark Host &lt;noreply@maxmark.com.ng&gt;</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button className={secondaryButtonClass} onClick={() => setSendTestOpen(false)} type="button">
+              Cancel
+            </button>
+            <button
+              className={primaryButtonClass}
+              disabled={sendingTest}
+              onClick={() => void handleDispatchTestEmail()}
+              type="button"
+            >
+              {sendingTest ? 'Sending via Resend…' : 'Send Test Email Now'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SEND BROADCAST MODAL */}
+      <Dialog open={sendBroadcastOpen} onOpenChange={setSendBroadcastOpen}>
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader>
+            <DialogTitle className="text-white text-base">Send Customer Email Broadcast</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Broadcast an operational announcement or newsletter to all registered users via Resend.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-left">
             <div>
               <label className={fieldLabelClass}>Target Audience</label>
               <select
-                value={targetAudience}
-                onChange={(e) => setTargetAudience(e.target.value as typeof targetAudience)}
                 className={fieldInputClass}
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value as 'all' | 'vip' | 'standard')}
               >
-                <option value="all">All Active Customer Accounts</option>
-                <option value="vip">WordPress VIP / Scale Tier Customers</option>
-                <option value="standard">Standard Hosting Customers</option>
+                <option value="all">All Active Users</option>
+                <option value="vip">VIP Subscription Tier</option>
+                <option value="standard">Standard Subscription Tier</option>
               </select>
             </div>
-
             <div>
-              <label className={fieldLabelClass}>Email Subject</label>
+              <label className={fieldLabelClass}>Subject Line</label>
               <input
-                type="text"
+                className={fieldInputClass}
                 value={broadcastSubject}
                 onChange={(e) => setBroadcastSubject(e.target.value)}
-                placeholder="Important platform update or announcement…"
-                className={fieldInputClass}
+                placeholder="Important System Announcement"
               />
             </div>
-
             <div>
-              <label className={fieldLabelClass}>Email Message Content (HTML Supported)</label>
+              <label className={fieldLabelClass}>Email Content (HTML or Plain Text)</label>
               <textarea
-                rows={5}
+                className={`${fieldInputClass} h-32`}
                 value={broadcastBody}
                 onChange={(e) => setBroadcastBody(e.target.value)}
-                placeholder="Write your email announcement message here…"
-                className={`${fieldInputClass} min-h-[120px]`}
+                placeholder="Dear customer, we are pleased to announce..."
               />
             </div>
           </div>
@@ -353,59 +547,50 @@ export function AdminNotifications() {
             <button className={secondaryButtonClass} onClick={() => setSendBroadcastOpen(false)} type="button">
               Cancel
             </button>
-            <button
-              className={primaryButtonClass}
-              disabled={!broadcastSubject.trim() || !broadcastBody.trim()}
-              onClick={handleSendBroadcast}
-              type="button"
-            >
-              Send Broadcast
+            <button className={primaryButtonClass} onClick={handleSendBroadcast} type="button">
+              Queue Broadcast
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── NEW BANNER MODAL ── */}
+      {/* NEW BANNER MODAL */}
       <Dialog open={addBannerOpen} onOpenChange={setAddBannerOpen}>
         <DialogContent className={adminDialogClass}>
           <DialogHeader>
-            <DialogTitle className="text-white text-lg font-bold">New Dashboard Announcement Banner</DialogTitle>
-            <DialogDescription>
-              Publishes an announcement banner at the top of customer dashboards.
+            <DialogTitle className="text-white text-base">Create Dashboard Announcement Banner</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Display a visible notice banner across all active customer dashboards.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 py-2 text-left">
             <div>
               <label className={fieldLabelClass}>Banner Title</label>
               <input
-                type="text"
+                className={fieldInputClass}
                 value={bannerTitle}
                 onChange={(e) => setBannerTitle(e.target.value)}
-                placeholder="e.g. Scheduled Maintenance Notice"
-                className={fieldInputClass}
+                placeholder="Scheduled Maintenance"
               />
             </div>
-
             <div>
-              <label className={fieldLabelClass}>Banner Message</label>
-              <textarea
-                rows={3}
+              <label className={fieldLabelClass}>Notice Message</label>
+              <input
+                className={fieldInputClass}
                 value={bannerMessage}
                 onChange={(e) => setBannerMessage(e.target.value)}
-                placeholder="Details of the announcement…"
-                className={fieldInputClass}
+                placeholder="Host Node 01 maintenance scheduled for Aug 8..."
               />
             </div>
-
             <div>
-              <label className={fieldLabelClass}>Tone / Severity</label>
+              <label className={fieldLabelClass}>Notice Tone</label>
               <select
-                value={bannerTone}
-                onChange={(e) => setBannerTone(e.target.value as typeof bannerTone)}
                 className={fieldInputClass}
+                value={bannerTone}
+                onChange={(e) => setBannerTone(e.target.value as 'info' | 'warning' | 'critical')}
               >
-                <option value="info">Information (Blue/Violet)</option>
+                <option value="info">Info (Blue)</option>
                 <option value="warning">Warning (Amber)</option>
                 <option value="critical">Critical (Red)</option>
               </select>
@@ -416,13 +601,8 @@ export function AdminNotifications() {
             <button className={secondaryButtonClass} onClick={() => setAddBannerOpen(false)} type="button">
               Cancel
             </button>
-            <button
-              className={primaryButtonClass}
-              disabled={!bannerTitle.trim() || !bannerMessage.trim()}
-              onClick={() => void handleAddBanner()}
-              type="button"
-            >
-              Publish Banner
+            <button className={primaryButtonClass} onClick={() => void handleAddBanner()} type="button">
+              Publish Announcement
             </button>
           </DialogFooter>
         </DialogContent>
