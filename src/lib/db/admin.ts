@@ -282,12 +282,31 @@ export async function fetchAllProfiles(supabase: SupabaseClient): Promise<AdminP
 }
 
 export async function fetchNodes(supabase: SupabaseClient): Promise<HostingNode[]> {
-  const { data, error } = await supabase
-    .from('hosting_nodes')
-    .select('*')
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(mapNode)
+  const [{ data: nodeData, error: nodeError }, { data: siteData, error: siteError }] =
+    await Promise.all([
+      supabase.from('hosting_nodes').select('*').order('created_at', { ascending: true }),
+      supabase.from('user_sites').select('id, node_id, status'),
+    ])
+
+  if (nodeError) throw nodeError
+
+  const sitesByNode = new Map<string, number>()
+  if (!siteError && siteData) {
+    for (const site of siteData) {
+      if (site.status !== 'failed') {
+        sitesByNode.set(site.node_id, (sitesByNode.get(site.node_id) || 0) + 1)
+      }
+    }
+  }
+
+  return (nodeData ?? []).map((row) => {
+    const node = mapNode(row)
+    const actualSlots = sitesByNode.get(node.id) ?? 0
+    return {
+      ...node,
+      currentSlots: actualSlots,
+    }
+  })
 }
 
 export async function fetchAllSitesAdmin(supabase: SupabaseClient): Promise<AdminSiteRow[]> {
