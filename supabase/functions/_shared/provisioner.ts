@@ -485,13 +485,7 @@ async function reserveSiteCapacity(
   })
 
   if (error) {
-    const allowed = [
-      'An active hosting plan is required.',
-      'Your hosting plan site limit has been reached.',
-      'This domain is already provisioned or being provisioned.',
-      'No hosting capacity is currently available.',
-    ]
-    throw new Error(allowed.includes(error.message) ? error.message : 'Unable to reserve hosting capacity.')
+    throw new Error(error.message || 'Unable to reserve hosting capacity.')
   }
 
   return data as { reservationId: string; node: HostingNodeRecord }
