@@ -68,6 +68,13 @@ export function provisionSiteViaFunction(
   })
 }
 
+export async function deprovisionSite(
+  sb: SupabaseClient,
+  siteId: string,
+): Promise<{ success: boolean; siteDomain: string }> {
+  return invoke(sb, 'deprovision-site', { siteId })
+}
+
 export type PaymentPurpose =
   | { purpose: 'invoice'; invoiceId: string }
   | { purpose: 'plugin'; pluginId: string }

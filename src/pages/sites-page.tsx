@@ -21,6 +21,8 @@ import type { ManagedSite } from '@/types/provisioning'
 import { EmptyState, NoSearchResultState } from '@/components/ui/ui-states'
 import { WordPressLogo } from '@/components/icons/wordpress-logo'
 import { ActionDropdown } from '@/components/ui/dropdown-menu'
+import { deprovisionSite } from '@/lib/functions'
+import { supabase } from '@/lib/supabase'
 
 interface SitesPageProps {
   sites: ManagedSite[]
@@ -205,9 +207,15 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
                             label: 'Delete Site',
                             icon: <Trash2 className="h-3.5 w-3.5" />,
                             danger: true,
-                            onClick: () => {
-                              if (confirm(`Are you sure you want to delete ${site.site_domain}? This action is permanent.`)) {
-                                console.log('Site deletion requested for:', site.id)
+                            onClick: async () => {
+                              if (confirm(`Are you sure you want to delete ${site.site_domain}? This will purge the site from the cPanel node and database.`)) {
+                                try {
+                                  if (!supabase) return
+                                  await deprovisionSite(supabase, site.id)
+                                  window.location.reload()
+                                } catch (err) {
+                                  alert(err instanceof Error ? err.message : 'Failed to delete site')
+                                }
                               }
                             },
                           },

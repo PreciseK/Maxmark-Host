@@ -10,7 +10,7 @@ import {
   type AdminSiteRow,
   type HostingNode,
 } from '@/lib/db/admin'
-import { adminAction } from '@/lib/functions'
+import { adminAction, deprovisionSite } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
 import { formatDateLabel } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -201,21 +201,16 @@ export function AdminSites() {
     setIsDeleting(true)
     setFeedback(null)
     try {
-      const { error } = await supabase
-        .from('user_sites')
-        .delete()
-        .eq('id', deletingSite.id)
-
-      if (error) throw error
+      await deprovisionSite(supabase, deletingSite.id)
 
       setSites((prev) => prev.filter((s) => s.id !== deletingSite.id))
-      setFeedback({ kind: 'success', text: `Deleted site ${deletingSite.siteDomain}` })
+      setFeedback({ kind: 'success', text: `Successfully purged site ${deletingSite.siteDomain} from cPanel node & database` })
       setDeletingSite(null)
       setConfirmDomainInput('')
     } catch (err) {
       setFeedback({
         kind: 'error',
-        text: err instanceof Error ? err.message : 'Failed to delete site',
+        text: err instanceof Error ? err.message : 'Failed to delete site from cPanel node',
       })
     } finally {
       setIsDeleting(false)

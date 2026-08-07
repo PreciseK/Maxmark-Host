@@ -685,3 +685,82 @@ export async function provisionWordPressSite(
     )
   }
 }
+
+export interface DeprovisionSiteOptions {
+  siteId: string
+  userId: string
+}
+
+export async function deprovisionWordPressSite(
+  options: DeprovisionSiteOptions,
+  deps: ProvisionerDependencies,
+): Promise<{ success: boolean; siteDomain: string }> {
+  const supabase = deps.supabase ?? createServiceRoleClient(deps.env)
+
+  // 1. Fetch site record and attached hosting node
+  const { data: site, error: siteError } = await supabase
+    .from('user_sites')
+    .select('*, hosting_nodes(*)')
+    .eq('id', options.siteId)
+    .single()
+
+  if (siteError || !site) {
+    throw new Error(`Site record ${options.siteId} not found or already deleted`)
+  }
+
+  const node: HostingNodeRecord = site.hosting_nodes || {
+    id: site.node_id,
+    cpanel_username: 'maxmark',
+    primary_domain: 'co-s1.serverpanel.com',
+    current_slots: 1,
+    max_slots: 20,
+    status: 'active',
+  }
+
+  const executor = deps.executor ?? createFetchWhmExecutor()
+
+  // 2. WHM: Delete Addon Domain from cPanel
+  try {
+    const delDomainCall = buildDelAddonDomainCall(node, site.site_domain)
+    await executeWhmCall(deps.env, executor, delDomainCall)
+  } catch (err) {
+    console.warn(`WHM deladdondomain notice for ${site.site_domain}:`, err)
+  }
+
+  // 3. WHM: Delete MySQL Database
+  try {
+    const dbNames = buildDatabaseNames(node, site.site_domain)
+    const delDbCall = buildMysqlCall(node, 'delete_database', { name: dbNames.fullDatabaseName })
+    await executeWhmCall(deps.env, executor, delDbCall)
+  } catch (err) {
+    console.warn(`WHM delete_database notice for ${site.site_domain}:`, err)
+  }
+
+  // 4. WHM: Delete MySQL User
+  try {
+    const dbNames = buildDatabaseNames(node, site.site_domain)
+    const delUserCall = buildMysqlCall(node, 'delete_user', { name: dbNames.fullDatabaseUser })
+    await executeWhmCall(deps.env, executor, delUserCall)
+  } catch (err) {
+    console.warn(`WHM delete_user notice for ${site.site_domain}:`, err)
+  }
+
+  // 5. Delete site record from Supabase user_sites
+  const { error: deleteError } = await supabase
+    .from('user_sites')
+    .delete()
+    .eq('id', options.siteId)
+
+  if (deleteError) {
+    throw new Error(`Failed to delete site record: ${deleteError.message}`)
+  }
+
+  // 6. Release node slot reservation
+  try {
+    await releaseSiteReservation(supabase, site.id, site.user_id)
+  } catch (err) {
+    console.warn('Slot release notice:', err)
+  }
+
+  return { success: true, siteDomain: site.site_domain }
+}
