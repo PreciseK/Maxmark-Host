@@ -10,6 +10,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
+import { CreateSiteModal } from '@/components/create-site-modal'
 import { fetchRegisteredDomains, type RegisteredDomain } from '@/lib/db/domains'
 import {
   checkDomainAvailability,
@@ -50,6 +51,10 @@ export function DomainsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'registration' | 'manage'>('registration')
+
+  // Provisioning Modal State
+  const [provisionModalOpen, setProvisionModalOpen] = useState(false)
+  const [selectedDomainForProvision, setSelectedDomainForProvision] = useState('')
 
   // Domain availability search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -250,14 +255,21 @@ export function DomainsPage() {
                         {res.isAvailable ? (
                           <button
                             type="button"
+                            onClick={() => {
+                              setSelectedDomainForProvision(res.fullDomain)
+                              setProvisionModalOpen(true)
+                            }}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-500 transition"
                           >
                             <Plus className="h-3.5 w-3.5" />
-                            Register Now
+                            Provision WordPress Site
                           </button>
                         ) : (
                           <button
                             type="button"
+                            onClick={() => {
+                              alert(`Domain ${res.fullDomain} is already registered on another DNS authority. Transfer option requested.`)
+                            }}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white transition"
                           >
                             Transfer Domain
@@ -376,6 +388,17 @@ export function DomainsPage() {
           </div>
         )}
       </div>
+
+      <CreateSiteModal
+        open={provisionModalOpen}
+        onOpenChange={setProvisionModalOpen}
+        initialDomain={selectedDomainForProvision}
+        existingDomains={domains.map((d) => d.domain)}
+        onSiteCreated={() => {
+          setProvisionModalOpen(false)
+          void loadDomains()
+        }}
+      />
     </div>
   )
 }

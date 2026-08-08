@@ -19,6 +19,7 @@ export const TLD_PRICING: TldPriceInfo[] = [
   { tld: 'ng', priceNgnYearly: 18000, popular: true },
   { tld: 'org', priceNgnYearly: 16000 },
   { tld: 'net', priceNgnYearly: 15500 },
+  { tld: 'tech', priceNgnYearly: 9500 },
   { tld: 'co', priceNgnYearly: 22000 },
 ]
 
@@ -26,44 +27,65 @@ export async function checkDomainAvailability(searchTerm: string): Promise<Domai
   const cleanInput = searchTerm.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
   if (!cleanInput) return []
 
-  // Extract name and target TLD if specified
   const parts = cleanInput.split('.')
   const baseName = parts[0].replace(/[^a-z0-9-]/g, '')
   if (!baseName) return []
 
-  // Perform availability simulation / DNS lookup check
-  // In production, DNS Google Cloud DoH API (https://dns.google/resolve) resolves A/AAAA/NS records
-  const results: DomainCheckResult[] = []
-
-  for (const info of TLD_PRICING) {
-    const fullDomain = `${baseName}.${info.tld}`
-    let isAvailable = true
-
-    try {
-      const response = await fetch(`https://dns.google/resolve?name=${fullDomain}&type=NS`, {
-        headers: { Accept: 'application/dns-json' },
-      })
-      if (response.ok) {
-        const json = await response.json()
-        // If Status === 0 and Answer array exists, domain is taken (has nameservers)
-        if (json.Status === 0 && json.Answer && json.Answer.length > 0) {
-          isAvailable = false
-        }
-      }
-    } catch {
-      // Fallback deterministic availability based on name length / hash
-      isAvailable = baseName.length > 4 && !['google', 'apple', 'amazon', 'facebook', 'microsoft', 'maxmark'].includes(baseName)
+  let targetTlds = TLD_PRICING
+  if (parts.length > 1 && parts[1]) {
+    const specifiedTld = parts.slice(1).join('.')
+    const found = TLD_PRICING.find((t) => t.tld === specifiedTld)
+    if (found) {
+      targetTlds = [found, ...TLD_PRICING.filter((t) => t.tld !== specifiedTld)]
     }
-
-    results.push({
-      domain: baseName,
-      tld: info.tld,
-      fullDomain,
-      isAvailable,
-      priceNgnYearly: info.priceNgnYearly,
-      popular: info.popular,
-    })
   }
+
+  const results: DomainCheckResult[] = await Promise.all(
+    targetTlds.map(async (info) => {
+      const fullDomain = `${baseName}.${info.tld}`
+      let isAvailable = true
+
+      try {
+        // Query Google DNS over HTTPS (DoH) API for real DNS resolution
+        const [aRes, nsRes] = await Promise.all([
+          fetch(`https://dns.google/resolve?name=${encodeURIComponent(fullDomain)}&type=A`, {
+            headers: { Accept: 'application/dns-json' },
+          }).then((r) => r.json()),
+          fetch(`https://dns.google/resolve?name=${encodeURIComponent(fullDomain)}&type=NS`, {
+            headers: { Accept: 'application/dns-json' },
+          }).then((r) => r.json()),
+        ])
+
+        // Status === 0 (NoError) with Answer/Authority records means domain is registered (Taken)
+        // Status === 3 (NXDOMAIN) means domain does not exist in TLD registry (Available)
+        const hasAnswers =
+          (aRes.Status === 0 && Array.isArray(aRes.Answer) && aRes.Answer.length > 0) ||
+          (nsRes.Status === 0 && Array.isArray(nsRes.Answer) && nsRes.Answer.length > 0)
+
+        const hasAuthoritySoa =
+          (aRes.Authority && Array.isArray(aRes.Authority) && aRes.Authority.some((a: { type?: number }) => a.type === 6)) ||
+          (nsRes.Authority && Array.isArray(nsRes.Authority) && nsRes.Authority.some((a: { type?: number }) => a.type === 6))
+
+        if (hasAnswers || (aRes.Status === 0 && hasAuthoritySoa)) {
+          isAvailable = false
+        } else if (aRes.Status === 3 && nsRes.Status === 3) {
+          isAvailable = true
+        }
+      } catch {
+        // Fallback for network error
+        isAvailable = baseName.length >= 6 && !['google', 'apple', 'amazon', 'microsoft', 'facebook', 'maxmark'].includes(baseName)
+      }
+
+      return {
+        domain: baseName,
+        tld: info.tld,
+        fullDomain,
+        isAvailable,
+        priceNgnYearly: info.priceNgnYearly,
+        popular: info.popular,
+      }
+    }),
+  )
 
   return results
 }

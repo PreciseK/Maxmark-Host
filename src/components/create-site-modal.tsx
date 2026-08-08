@@ -26,7 +26,8 @@ import type { ManagedSite, ProvisioningStep } from '@/types/provisioning'
 interface CreateSiteModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  existingDomains: string[]
+  existingDomains?: string[]
+  initialDomain?: string
   onSiteCreated: (site: ManagedSite) => void
 }
 
@@ -83,7 +84,7 @@ export function CreateSiteModal({
 
     try {
       const site = await provisionSite(domain, {
-        existingDomains,
+        existingDomains: existingDomains ?? [],
         onProgress: setSteps,
       })
 
