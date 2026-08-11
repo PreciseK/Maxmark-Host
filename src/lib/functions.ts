@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { mapDbPurchaseToPluginPurchase } from '@/lib/db/marketplace'
 import type { PluginPurchase } from '@/types/marketplace'
-import type { ProvisioningStep, UserSiteRecord } from '@/types/provisioning'
+import type { ProvisioningStep, SiteType, UserSiteRecord } from '@/types/provisioning'
 
 interface FunctionEnvelope<T> {
   success: boolean
@@ -62,9 +62,11 @@ export interface ProvisionSiteFunctionResult {
 export function provisionSiteViaFunction(
   supabase: SupabaseClient,
   siteDomain: string,
+  siteType: SiteType = 'wordpress',
 ): Promise<ProvisionSiteFunctionResult> {
   return invoke<ProvisionSiteFunctionResult>(supabase, 'provision-site', {
     siteDomain,
+    siteType,
   })
 }
 

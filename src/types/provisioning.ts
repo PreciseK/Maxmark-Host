@@ -1,5 +1,6 @@
 export type HostingNodeStatus = 'active' | 'full'
 export type UserSiteStatus = 'provisioning' | 'active' | 'suspended' | 'failed'
+export type SiteType = 'wordpress' | 'nextjs' | 'static' | 'nodejs'
 
 export interface HostingNodeRecord {
   id: string
@@ -18,6 +19,7 @@ export interface UserSiteRecord {
   db_user: string
   document_root: string
   status: UserSiteStatus
+  siteType: SiteType
   wp_admin_password?: string
   created_at?: string
   updated_at?: string
@@ -64,6 +66,7 @@ export type ProvisioningStepId =
   | 'create-user'
   | 'grant-privileges'
   | 'install-wordpress'
+  | 'setup-nodejs-app'
   | 'enable-ssl'
   | 'complete'
 

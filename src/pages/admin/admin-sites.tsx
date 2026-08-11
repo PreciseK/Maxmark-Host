@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Edit2, Trash2, ExternalLink, Settings, ShieldAlert, Check, Search } from 'lucide-react'
+import { Edit2, Trash2, ExternalLink, Settings, ShieldAlert, Check, Search, Globe } from 'lucide-react'
 
 import {
   fetchAllProfiles,
@@ -67,6 +67,7 @@ export function AdminSites() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const statusParam = searchParams.get('status')
+  const typeParam = searchParams.get('type') ?? 'all'
   const statusFilter: StatusFilter = statusFilters.includes(statusParam as StatusFilter)
     ? (statusParam as StatusFilter)
     : 'all'
@@ -106,6 +107,7 @@ export function AdminSites() {
     const term = search.trim().toLowerCase()
     return sites.filter((site) => {
       if (statusFilter !== 'all' && site.status !== statusFilter) return false
+      if (typeParam !== 'all' && (site.siteType ?? 'wordpress') !== typeParam) return false
       if (nodeFilter !== 'all' && site.nodeId !== nodeFilter) return false
       if (!term) return true
       return (
@@ -113,9 +115,9 @@ export function AdminSites() {
         (ownerByUser.get(site.userId) ?? '').toLowerCase().includes(term)
       )
     })
-  }, [sites, statusFilter, nodeFilter, search, ownerByUser])
+  }, [sites, statusFilter, typeParam, nodeFilter, search, ownerByUser])
 
-  function setFilter(key: 'status' | 'node', value: string) {
+  function setFilter(key: 'status' | 'node' | 'type', value: string) {
     const next = new URLSearchParams(searchParams)
     if (value === 'all') next.delete(key)
     else next.set(key, value)
@@ -222,7 +224,7 @@ export function AdminSites() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        description="Every WordPress site on the platform, across all customers and nodes."
+        description="Every site provisioned on the platform — WordPress, Next.js, Static, and Node.js."
         title="Sites"
       />
 
@@ -257,6 +259,18 @@ export function AdminSites() {
             </button>
           ))}
         </div>
+
+        <select
+          className="bg-[#161618] border border-[#232328] rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-[#5c4df0]/50"
+          onChange={(event) => setFilter('type', event.target.value)}
+          value={typeParam}
+        >
+          <option value="all">All types</option>
+          <option value="wordpress">WordPress</option>
+          <option value="nextjs">Next.js</option>
+          <option value="static">Static Site</option>
+          <option value="nodejs">Node.js App</option>
+        </select>
 
         <select
           className="bg-[#161618] border border-[#232328] rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-[#5c4df0]/50"
@@ -295,6 +309,7 @@ export function AdminSites() {
           <thead>
             <tr className={theadRowClass}>
               <th className={thClass}>Domain</th>
+              <th className={thClass}>Type</th>
               <th className={thClass}>Owner</th>
               <th className={thClass}>Node</th>
               <th className={thClass}>Plan</th>
@@ -309,6 +324,14 @@ export function AdminSites() {
               return (
                 <tr className={rowClass} key={site.id}>
                   <td className={`${cellClass} font-semibold`}>{site.siteDomain}</td>
+                  <td className={cellClass}>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold border border-[#2d2d34] bg-[#202024] text-white">
+                      {site.siteType === 'nextjs' ? 'Next.js'
+                        : site.siteType === 'static' ? 'Static'
+                        : site.siteType === 'nodejs' ? 'Node.js'
+                        : 'WordPress'}
+                    </span>
+                  </td>
                   <td className={cellClass}>
                     <Link
                       className="text-[#5c4df0] hover:text-[#796ef3] hover:underline"
@@ -330,14 +353,21 @@ export function AdminSites() {
                   <td className={`${cellClass} text-right`}>
                     <ActionDropdown
                       items={[
-                        {
+                        ...((!site.siteType || site.siteType === 'wordpress') ? [{
                           label: 'WP-Admin Dashboard',
                           icon: <WordPressLogo className="h-3.5 w-3.5 text-[#0073aa]" />,
                           onClick: () => {
                             const cleanDomain = site.siteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
                             window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
                           },
-                        },
+                        }] : [{
+                          label: 'Open Live Site',
+                          icon: <Globe className="h-3.5 w-3.5 text-sky-400" />,
+                          onClick: () => {
+                            const cleanDomain = site.siteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                            window.open(`https://${cleanDomain}`, '_blank', 'noopener,noreferrer')
+                          },
+                        }]),
                         {
                           label: 'Open Customer Console',
                           icon: <ExternalLink className="h-3.5 w-3.5 text-sky-400" />,

@@ -1,9 +1,15 @@
 // POST /functions/v1/provision-site
-// Body: { "siteDomain": "client-site.com" }
+// Body: { "siteDomain": "client-site.com", "siteType": "wordpress" }
 //
-// Provisions a WordPress site for the *authenticated caller*. The user id is
-// taken from the verified JWT — never from the request body. WHM credentials
-// and the service-role key only ever exist in this server context.
+// Provisions a site for the *authenticated caller*. The user id is taken from
+// the verified JWT — never from the request body. WHM credentials and the
+// service-role key only ever exist in this server context.
+//
+// Supported siteType values:
+//   "wordpress" (default) — WordPress install + MySQL
+//   "nextjs"              — Node.js App Manager + no MySQL
+//   "static"              — document root only, no DB, no Node.js
+//   "nodejs"              — Node.js App Manager + no MySQL (generic)
 //
 // Secrets (supabase secrets set):
 //   WHM_HOST, WHM_PORT, WHM_API_USERNAME, WHM_MASTER_TOKEN, MOCK_WHM_REQUESTS
@@ -15,7 +21,7 @@ import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts'
 import {
   createMockWhmExecutor,
   ProvisioningError,
-  provisionWordPressSite,
+  provisionSite,
 } from '../_shared/provisioner.ts'
 
 const bodySchema = z.object({
@@ -27,6 +33,7 @@ const bodySchema = z.object({
       /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,}$/,
       'siteDomain must be a valid domain like client-site.com',
     ),
+  siteType: z.enum(['wordpress', 'nextjs', 'static', 'nodejs']).default('wordpress'),
 })
 
 Deno.serve(async (request) => {
@@ -74,8 +81,8 @@ Deno.serve(async (request) => {
     (Deno.env.get('MOCK_WHM_REQUESTS') ?? 'true').toLowerCase() === 'true'
 
   try {
-    const result = await provisionWordPressSite(
-      { userId: user.id, siteDomain: body.siteDomain },
+    const result = await provisionSite(
+      { userId: user.id, siteDomain: body.siteDomain, siteType: body.siteType },
       {
         env: Deno.env.toObject(),
         executor: useMockWhm ? createMockWhmExecutor() : undefined,

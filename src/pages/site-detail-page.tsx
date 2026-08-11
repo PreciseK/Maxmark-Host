@@ -237,6 +237,7 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
     tasks: 'Scheduled Tasks',
     containers: 'Containers',
     integrations: 'Integrations',
+    deployment: 'Deployment',
   }
 
   const currentTabTitle = tabTitles[activeTab] || 'Credentials'
@@ -302,23 +303,43 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
             <button className="text-muted-foreground hover:text-white transition">
               <Edit2 className="h-3.5 w-3.5" />
             </button>
-            <button
-              onClick={() => {
-                const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-                window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
-              }}
-              title="Open WordPress Admin Dashboard"
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0073aa] hover:bg-[#005177] text-white text-xs font-semibold transition shadow"
-            >
-              <WordPressLogo className="h-3.5 w-3.5 text-white" />
-              WP-Admin
-              <ExternalLink className="h-3.5 w-3.5" />
-            </button>
+            {(!site.siteType || site.siteType === 'wordpress') && (
+              <button
+                onClick={() => {
+                  const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                  window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                }}
+                title="Open WordPress Admin Dashboard"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0073aa] hover:bg-[#005177] text-white text-xs font-semibold transition shadow"
+              >
+                <WordPressLogo className="h-3.5 w-3.5 text-white" />
+                WP-Admin
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {site.siteType && site.siteType !== 'wordpress' && (
+              <a
+                href={`https://${site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] text-white text-xs font-semibold transition"
+              >
+                <Globe className="h-3.5 w-3.5" />
+                Open Site
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
             <div>
-              Type: <span className="text-white font-medium">WordPress</span>
+              Type:{' '}
+              <span className="text-white font-medium">
+                {site.siteType === 'nextjs' ? 'Next.js'
+                  : site.siteType === 'static' ? 'Static Site'
+                  : site.siteType === 'nodejs' ? 'Node.js App'
+                  : 'WordPress'}
+              </span>
             </div>
             <div className="h-3 w-px bg-[#232328] hidden sm:block" />
             <div className="flex items-center gap-1.5 min-w-0">
@@ -1914,6 +1935,79 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
         </div>
       )}
 
+      {/* Deployment tab — shown for non-WordPress site types */}
+      {activeTab === 'deployment' && (
+        <div className="space-y-6 text-xs text-left">
+          <div className="bg-[#161619] border border-[#232328] rounded-lg p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-white">Deployment</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              Your site document root is ready on the cPanel node. Deploy your application files via SFTP/FTP
+              {site.siteType !== 'static' ? ' and configure the Node.js startup command in cPanel.' : '.'}
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2 border-t border-[#232328] pt-4">
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Document Root</span>
+                <p className="font-mono text-white text-xs bg-[#121214] border border-[#232328] rounded p-2 truncate">
+                  {site.document_root}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold block">SFTP Host</span>
+                <p className="font-mono text-white text-xs bg-[#121214] border border-[#232328] rounded p-2 truncate">
+                  {site.ftpHostname}
+                </p>
+              </div>
+            </div>
+
+            {site.siteType !== 'static' && (
+              <div className="border border-sky-500/20 bg-sky-500/5 rounded-lg p-4 space-y-2">
+                <p className="text-sky-300 font-semibold text-xs">Node.js App Manager</p>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  Your Node.js runtime was registered in cPanel during provisioning. Log in to cPanel to set your
+                  Node.js version, environment variables, and start your app with <code className="text-white font-mono">npm start</code> or a custom startup file.
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Recommended startup file: <code className="text-white font-mono">server.js</code>
+                </p>
+              </div>
+            )}
+
+            <div className="border border-[#232328] rounded-lg p-4 space-y-2 bg-[#121214]">
+              <p className="text-muted-foreground text-[11px] font-semibold uppercase">Git-based deploys (coming soon)</p>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                Push-to-deploy via GitHub/GitLab is planned for a future release. For now, deploy via SFTP or cPanel File Manager.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WordPress-only gates: show a notice for non-WP sites */}
+      {activeTab === 'databases' && site.siteType && site.siteType !== 'wordpress' && (
+        <div className="bg-[#161619] border border-[#232328] rounded-lg p-10 text-center space-y-3 text-xs">
+          <p className="text-muted-foreground">Database management is not available for {site.siteType === 'static' ? 'static sites' : 'Node.js apps'}.</p>
+        </div>
+      )}
+
+      {activeTab === 'visual-comparison' && site.siteType && site.siteType !== 'wordpress' && (
+        <div className="bg-[#161619] border border-[#232328] rounded-lg p-10 text-center space-y-3 text-xs">
+          <p className="text-muted-foreground">Visual comparison is a WordPress-specific feature and is not available for this site type.</p>
+        </div>
+      )}
+
+      {activeTab === 'design-services' && site.siteType && site.siteType !== 'wordpress' && (
+        <div className="bg-[#161619] border border-[#232328] rounded-lg p-10 text-center space-y-3 text-xs">
+          <p className="text-muted-foreground">Design services are only available for WordPress sites.</p>
+        </div>
+      )}
+
+      {activeTab === 'containers' && site.siteType && site.siteType !== 'wordpress' && (
+        <div className="bg-[#161619] border border-[#232328] rounded-lg p-10 text-center space-y-3 text-xs">
+          <p className="text-muted-foreground">Container services (Elasticsearch, RabbitMQ, Solr) are only available for WordPress sites.</p>
+        </div>
+      )}
+
       {/* Placeholders for un-implemented sub-tabs */}
       {activeTab !== 'credentials' &&
         activeTab !== 'content-delivery' &&
@@ -1930,7 +2024,8 @@ export function SiteDetailPage({ sites }: SiteDetailPageProps) {
         activeTab !== 'logs' &&
         activeTab !== 'tasks' &&
         activeTab !== 'containers' &&
-        activeTab !== 'integrations' && (
+        activeTab !== 'integrations' &&
+        activeTab !== 'deployment' && (
           <div className="bg-[#161619] border border-[#232328] rounded-lg p-10 text-center space-y-4 text-xs text-left max-w-xl mx-auto">
             <div className="h-10 w-10 bg-[#121214] border border-[#232328] rounded-full flex items-center justify-center mx-auto text-muted-foreground select-none">
               ⚙️

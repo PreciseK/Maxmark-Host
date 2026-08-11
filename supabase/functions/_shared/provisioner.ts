@@ -46,6 +46,7 @@ export type ProvisioningStepId =
   | 'create-user'
   | 'grant-privileges'
   | 'install-wordpress'
+  | 'setup-nodejs-app'
   | 'enable-ssl'
   | 'complete'
 
@@ -65,6 +66,7 @@ export interface ProvisioningStep {
 export interface ProvisionSiteInput {
   userId: string
   siteDomain: string
+  siteType?: 'wordpress' | 'nextjs' | 'static' | 'nodejs'
 }
 
 export interface ProvisionSiteResult {
@@ -678,6 +680,303 @@ export async function provisionWordPressSite(
       steps,
     )
   }
+}
+
+// ─── Static-site provisioning ─────────────────────────────────────────────────
+// Steps: select-node → create-domain → enable-ssl → complete
+// No MySQL database or WordPress installer needed.
+
+function createStaticSteps(): ProvisioningStep[] {
+  return [
+    {
+      id: 'select-node',
+      label: 'Selecting an available node',
+      description: 'Claiming a slot on the least-loaded active cPanel account.',
+      state: 'pending',
+    },
+    {
+      id: 'create-domain',
+      label: 'Creating isolated domain root',
+      description: "Provisioning the addon domain and document root on the cPanel account.",
+      state: 'pending',
+    },
+    {
+      id: 'enable-ssl',
+      label: 'Starting AutoSSL',
+      description: 'Requesting certificate validation through cPanel AutoSSL.',
+      state: 'pending',
+    },
+    {
+      id: 'complete',
+      label: 'Finalizing site record',
+      description: 'Recording the finished site inside Supabase.',
+      state: 'pending',
+    },
+  ]
+}
+
+export async function provisionStaticSite(
+  input: ProvisionSiteInput,
+  dependencies: ProvisionerDependencies,
+): Promise<ProvisionSiteResult> {
+  const env = loadProvisionerEnv(dependencies.env)
+  const supabase = dependencies.supabase ?? createSupabaseAdminClient(env)
+  const executor = dependencies.executor ?? createFetchWhmExecutor()
+
+  let steps = createStaticSteps()
+  let node: HostingNodeRecord | null = null
+  let reservationId: string | null = null
+  const rollbackCalls: WhmCallDefinition[] = []
+  let currentStep: ProvisioningStepId = 'select-node'
+  const siteType = input.siteType ?? 'static'
+
+  try {
+    steps = setStep(steps, 'select-node', 'in_progress')
+    const reservation = await reserveSiteCapacity(
+      supabase,
+      input.userId,
+      sanitizeDomain(input.siteDomain),
+    )
+    node = reservation.node
+    reservationId = reservation.reservationId
+    steps = setStep(steps, 'select-node', 'completed')
+
+    const normalizedDomain = sanitizeDomain(input.siteDomain)
+
+    currentStep = 'create-domain'
+    steps = setStep(steps, currentStep, 'in_progress')
+    await executeWhmCall(env, executor, buildAddonDomainCall(node, normalizedDomain))
+    rollbackCalls.push(buildDelAddonDomainCall(node, normalizedDomain))
+    steps = setStep(steps, currentStep, 'completed')
+
+    currentStep = 'enable-ssl'
+    steps = setStep(steps, currentStep, 'in_progress')
+    await executeWhmCall(env, executor, buildAutoSslCall(node))
+    steps = setStep(steps, currentStep, 'completed')
+
+    currentStep = 'complete'
+    steps = setStep(steps, currentStep, 'in_progress')
+    const { data: insertedSite, error: insertError } = await supabase.rpc(
+      'complete_site_reservation',
+      {
+        target_reservation_id: reservationId,
+        target_user_id: input.userId,
+        site_values: {
+          db_name: '',
+          db_user: '',
+          document_root: toAbsoluteDocumentRoot(normalizedDomain),
+          site_type: siteType,
+        },
+      },
+    )
+
+    if (insertError) {
+      throw new Error(`Unable to persist site inventory: ${insertError.message}`)
+    }
+    steps = setStep(steps, currentStep, 'completed')
+
+    return {
+      site: insertedSite as ProvisionedSiteRecord,
+      steps,
+      nodeSummary: {
+        primaryDomain: node.primary_domain,
+        currentSlots: node.current_slots,
+        maxSlots: node.max_slots,
+      },
+    }
+  } catch (error) {
+    steps = setStep(steps, currentStep, 'failed')
+    for (const call of rollbackCalls.reverse()) {
+      try { await executeWhmCall(env, executor, call) } catch { /* best-effort */ }
+    }
+    if (reservationId) {
+      await releaseSiteReservation(supabase, reservationId, input.userId)
+    }
+    throw new ProvisioningError(
+      error instanceof Error ? error.message : 'Provisioning failed.',
+      steps,
+    )
+  }
+}
+
+// ─── Node.js / Next.js provisioning ──────────────────────────────────────────
+// Steps: select-node → create-domain → setup-nodejs-app → enable-ssl → complete
+// No MySQL database or WordPress installer.
+
+function createNodeSteps(): ProvisioningStep[] {
+  return [
+    {
+      id: 'select-node',
+      label: 'Selecting an available node',
+      description: 'Claiming a slot on the least-loaded active cPanel account.',
+      state: 'pending',
+    },
+    {
+      id: 'create-domain',
+      label: 'Creating isolated domain root',
+      description: "Provisioning the addon domain on the cPanel account.",
+      state: 'pending',
+    },
+    {
+      id: 'setup-nodejs-app',
+      label: 'Configuring Node.js runtime',
+      description: 'Registering the Node.js application in cPanel App Manager.',
+      state: 'pending',
+    },
+    {
+      id: 'enable-ssl',
+      label: 'Starting AutoSSL',
+      description: 'Requesting certificate validation through cPanel AutoSSL.',
+      state: 'pending',
+    },
+    {
+      id: 'complete',
+      label: 'Finalizing site record',
+      description: 'Recording the finished site inside Supabase.',
+      state: 'pending',
+    },
+  ]
+}
+
+function buildNodejsAppCall(
+  node: HostingNodeRecord,
+  siteDomain: string,
+): WhmCallDefinition {
+  return {
+    name: 'NodejsApp::create',
+    query: {
+      cpanel_jsonapi_user: node.cpanel_username.toLowerCase(),
+      cpanel_jsonapi_apiversion: '3',
+      cpanel_jsonapi_module: 'NodejsApp',
+      cpanel_jsonapi_func: 'create',
+      domain: sanitizeDomain(siteDomain),
+      app_root: toRelativeDocumentRoot(siteDomain),
+      startup_file: 'server.js',
+    },
+  }
+}
+
+export async function provisionNodeSite(
+  input: ProvisionSiteInput,
+  dependencies: ProvisionerDependencies,
+): Promise<ProvisionSiteResult> {
+  const env = loadProvisionerEnv(dependencies.env)
+  const supabase = dependencies.supabase ?? createSupabaseAdminClient(env)
+  const executor = dependencies.executor ?? createFetchWhmExecutor()
+
+  let steps = createNodeSteps()
+  let node: HostingNodeRecord | null = null
+  let reservationId: string | null = null
+  const rollbackCalls: WhmCallDefinition[] = []
+  let currentStep: ProvisioningStepId = 'select-node'
+  const siteType = input.siteType ?? 'nodejs'
+
+  try {
+    steps = setStep(steps, 'select-node', 'in_progress')
+    const reservation = await reserveSiteCapacity(
+      supabase,
+      input.userId,
+      sanitizeDomain(input.siteDomain),
+    )
+    node = reservation.node
+    reservationId = reservation.reservationId
+    steps = setStep(steps, 'select-node', 'completed')
+
+    const normalizedDomain = sanitizeDomain(input.siteDomain)
+
+    currentStep = 'create-domain'
+    steps = setStep(steps, currentStep, 'in_progress')
+    await executeWhmCall(env, executor, buildAddonDomainCall(node, normalizedDomain))
+    rollbackCalls.push(buildDelAddonDomainCall(node, normalizedDomain))
+    steps = setStep(steps, currentStep, 'completed')
+
+    currentStep = 'setup-nodejs-app'
+    steps = setStep(steps, currentStep, 'in_progress')
+    try {
+      await executeWhmCall(env, executor, buildNodejsAppCall(node, normalizedDomain))
+    } catch (nodeErr) {
+      const message = nodeErr instanceof Error ? nodeErr.message : String(nodeErr)
+      // Only treat "the module isn't installed on this cPanel build" as a
+      // soft skip. Any other failure (auth, malformed request, WHM outage)
+      // must propagate to the outer catch so rollback and the failure
+      // report actually fire, instead of reporting success for a Node.js
+      // app that was never configured.
+      const moduleUnavailable = /unknown module|module.*not (?:found|available|installed|enabled)|not supported/i.test(
+        message,
+      )
+      if (!moduleUnavailable) throw nodeErr
+      console.warn('NodejsApp::create skipped (module unavailable):', message)
+    }
+    steps = setStep(steps, currentStep, 'completed')
+
+    currentStep = 'enable-ssl'
+    steps = setStep(steps, currentStep, 'in_progress')
+    await executeWhmCall(env, executor, buildAutoSslCall(node))
+    steps = setStep(steps, currentStep, 'completed')
+
+    currentStep = 'complete'
+    steps = setStep(steps, currentStep, 'in_progress')
+    const { data: insertedSite, error: insertError } = await supabase.rpc(
+      'complete_site_reservation',
+      {
+        target_reservation_id: reservationId,
+        target_user_id: input.userId,
+        site_values: {
+          db_name: '',
+          db_user: '',
+          document_root: toAbsoluteDocumentRoot(normalizedDomain),
+          site_type: siteType,
+        },
+      },
+    )
+
+    if (insertError) {
+      throw new Error(`Unable to persist site inventory: ${insertError.message}`)
+    }
+    steps = setStep(steps, currentStep, 'completed')
+
+    return {
+      site: insertedSite as ProvisionedSiteRecord,
+      steps,
+      nodeSummary: {
+        primaryDomain: node.primary_domain,
+        currentSlots: node.current_slots,
+        maxSlots: node.max_slots,
+      },
+    }
+  } catch (error) {
+    steps = setStep(steps, currentStep, 'failed')
+    for (const call of rollbackCalls.reverse()) {
+      try { await executeWhmCall(env, executor, call) } catch { /* best-effort */ }
+    }
+    if (reservationId) {
+      await releaseSiteReservation(supabase, reservationId, input.userId)
+    }
+    throw new ProvisioningError(
+      error instanceof Error ? error.message : 'Provisioning failed.',
+      steps,
+    )
+  }
+}
+
+// ─── Unified dispatcher ───────────────────────────────────────────────────────
+
+export async function provisionSite(
+  input: ProvisionSiteInput,
+  dependencies: ProvisionerDependencies,
+): Promise<ProvisionSiteResult> {
+  const siteType = input.siteType ?? 'wordpress'
+
+  if (siteType === 'wordpress') {
+    return provisionWordPressSite(input, dependencies)
+  }
+
+  if (siteType === 'static') {
+    return provisionStaticSite(input, dependencies)
+  }
+
+  // 'nextjs' | 'nodejs'
+  return provisionNodeSite(input, dependencies)
 }
 
 export interface DeprovisionSiteOptions {

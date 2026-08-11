@@ -8,21 +8,38 @@
 import { fetchSites } from '@/lib/db/sites'
 import { provisionSiteViaFunction } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
-import type { ManagedSite, ProvisioningStep } from '@/types/provisioning'
+import type { ManagedSite, ProvisioningStep, SiteType } from '@/types/provisioning'
 
 export interface ProvisionSiteOptions {
   existingDomains: string[]
+  siteType?: SiteType
   onProgress?: (steps: ProvisioningStep[]) => void
 }
 
-function defaultSteps(): ProvisioningStep[] {
-  return [
+function defaultStepsForType(siteType: SiteType): ProvisioningStep[] {
+  const base: ProvisioningStep[] = [
     { id: 'select-node', label: 'Validating Domain Input', description: 'Checking domain format and availability', state: 'pending' },
-    { id: 'create-domain', label: 'Allocating Node & Slot', description: 'Selecting optimal server node', state: 'pending' },
-    { id: 'create-database', label: 'Creating cPanel Account & Database', description: 'Configuring WHM account and MySQL credentials', state: 'pending' },
-    { id: 'install-wordpress', label: 'Installing WordPress Core', description: 'Deploying latest WordPress release', state: 'pending' },
-    { id: 'complete', label: 'Finalizing Provisioning', description: 'Verifying DNS and SSL certificate status', state: 'pending' },
+    { id: 'create-domain', label: 'Allocating Node & Slot', description: 'Selecting optimal server node and creating domain root', state: 'pending' },
   ]
+
+  if (siteType === 'wordpress') {
+    base.push(
+      { id: 'create-database', label: 'Creating cPanel Account & Database', description: 'Configuring WHM account and MySQL credentials', state: 'pending' },
+      { id: 'install-wordpress', label: 'Installing WordPress Core', description: 'Deploying latest WordPress release', state: 'pending' },
+    )
+  } else if (siteType === 'nextjs' || siteType === 'nodejs') {
+    base.push(
+      { id: 'setup-nodejs-app', label: 'Configuring Node.js Runtime', description: 'Setting up Node.js App Manager on the cPanel account', state: 'pending' },
+    )
+  }
+  // 'static' — no additional infra steps
+
+  base.push(
+    { id: 'enable-ssl', label: 'Enabling AutoSSL', description: 'Requesting certificate validation through cPanel AutoSSL', state: 'pending' },
+    { id: 'complete', label: 'Finalizing Provisioning', description: 'Recording site record and verifying configuration', state: 'pending' },
+  )
+
+  return base
 }
 
 export async function provisionSite(
@@ -42,14 +59,15 @@ export async function provisionSite(
     throw new Error('You must be logged in to provision a site.')
   }
 
-  const steps = defaultSteps()
+  const siteType = options.siteType ?? 'wordpress'
+  const steps = defaultStepsForType(siteType)
   options.onProgress?.(
     steps.map((step, index) =>
       index === 0 ? { ...step, state: 'in_progress' } : step,
     ),
   )
 
-  const result = await provisionSiteViaFunction(sb, domainInput)
+  const result = await provisionSiteViaFunction(sb, domainInput, siteType)
   options.onProgress?.(result.steps)
 
   // Re-read through the repository so the new row is mapped with all its

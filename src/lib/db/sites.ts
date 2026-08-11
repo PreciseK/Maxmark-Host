@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ManagedSite, UserSiteStatus } from '@/types/provisioning'
+import type { ManagedSite, SiteType, UserSiteStatus } from '@/types/provisioning'
 
 interface DbNodeRow {
   primary_domain: string
@@ -39,6 +39,7 @@ interface DbSiteRow {
   backups_summary: string
   created_at: string
   updated_at: string
+  site_type: SiteType
   hosting_nodes: DbNodeRow | null
 }
 
@@ -53,6 +54,7 @@ function mapDbSiteToManagedSite(row: DbSiteRow): ManagedSite {
     db_user: row.db_user,
     document_root: row.document_root,
     status: row.status as UserSiteStatus,
+    siteType: row.site_type ?? 'wordpress',
     created_at: row.created_at,
     updated_at: row.updated_at,
     plan: row.plan,

@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Cloud,
   Edit2,
+  Globe,
   Plus,
   RefreshCw,
   Search,
@@ -14,15 +15,48 @@ import {
   ShieldCheck,
   Archive,
   Trash2,
+  Zap,
 } from 'lucide-react'
 
 import { CreateSiteModal } from '@/components/create-site-modal'
-import type { ManagedSite } from '@/types/provisioning'
+import type { ManagedSite, SiteType } from '@/types/provisioning'
 import { EmptyState, NoSearchResultState } from '@/components/ui/ui-states'
 import { WordPressLogo } from '@/components/icons/wordpress-logo'
 import { ActionDropdown } from '@/components/ui/dropdown-menu'
 import { deprovisionSite } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
+
+function SiteTypeBadge({ siteType }: { siteType: SiteType }) {
+  if (siteType === 'nextjs') {
+    return (
+      <span className="inline-flex h-5 w-5 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-white select-none">
+        <svg viewBox="0 0 15 15" fill="none" className="h-3 w-3" aria-hidden>
+          <path d="M7.5 1L14 13.5H1L7.5 1Z" fill="white" />
+        </svg>
+      </span>
+    )
+  }
+  if (siteType === 'static') {
+    return (
+      <span className="inline-flex h-5 w-5 rounded-full bg-sky-900/60 border border-sky-700/40 items-center justify-center text-sky-400 select-none">
+        <Globe className="h-3 w-3" />
+      </span>
+    )
+  }
+  if (siteType === 'nodejs') {
+    return (
+      <span className="inline-flex h-5 w-5 rounded-full bg-green-900/60 border border-green-700/40 items-center justify-center text-green-400 select-none">
+        <Zap className="h-3 w-3" />
+      </span>
+    )
+  }
+  // default: wordpress
+  return (
+    <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white select-none">
+      <WordPressLogo className="h-3.5 w-3.5" />
+    </span>
+  )
+}
 
 interface SitesPageProps {
   sites: ManagedSite[]
@@ -100,10 +134,10 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
         {sites.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              badge="WordPress Hosting"
+              badge="Managed Hosting"
               icon={<Server className="h-7 w-7 text-violet-400" />}
               title="No Sites Provisioned"
-              description="Deploy your first high-performance, managed WordPress installation on cPanel infrastructure in seconds."
+              description="Deploy your first managed site — WordPress, Next.js, Static, or Node.js — on high-performance cPanel infrastructure in seconds."
               actionLabel="Add Site"
               onAction={() => setModalOpen(true)}
             />
@@ -163,9 +197,7 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white select-none">
-                        <WordPressLogo className="h-3.5 w-3.5" />
-                      </span>
+                      <SiteTypeBadge siteType={site.siteType ?? 'wordpress'} />
                     </td>
                     <td className="px-5 py-4">
                       <Cloud className="h-5 w-5 text-[#88888b] fill-[#88888b]/10" />
@@ -173,14 +205,21 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
                     <td className="px-5 py-4 text-right">
                       <ActionDropdown
                         items={[
-                          {
-                            label: 'WP-Admin Dashboard',
-                            icon: <WordPressLogo className="h-3.5 w-3.5 text-[#0073aa]" />,
-                            onClick: () => {
-                              const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-                              window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
-                            },
-                          },
+                          ...((!site.siteType || site.siteType === 'wordpress') ? [{
+                             label: 'WP-Admin Dashboard',
+                             icon: <WordPressLogo className="h-3.5 w-3.5 text-[#0073aa]" />,
+                             onClick: () => {
+                               const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                               window.open(`https://${cleanDomain}/wp-admin`, '_blank', 'noopener,noreferrer')
+                             },
+                           }] : [{
+                             label: 'Open Site URL',
+                             icon: <Globe className="h-3.5 w-3.5 text-sky-400" />,
+                             onClick: () => {
+                               const cleanDomain = site.site_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+                               window.open(`https://${cleanDomain}`, '_blank', 'noopener,noreferrer')
+                             },
+                           }]),
                           {
                             label: 'Manage Site Settings',
                             icon: <Settings className="h-3.5 w-3.5" />,

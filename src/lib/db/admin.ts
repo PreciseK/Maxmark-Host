@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SiteType } from '@/types/provisioning'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ export interface AdminSiteRow {
   nodeId: string
   siteDomain: string
   status: 'provisioning' | 'active' | 'suspended' | 'failed'
+  siteType: SiteType
   plan: string
   region: string
   phpVersion: string
@@ -196,6 +198,7 @@ function mapSite(r: Row): AdminSiteRow {
     nodeId: r.node_id as string,
     siteDomain: r.site_domain as string,
     status: r.status as AdminSiteRow['status'],
+    siteType: (r.site_type as SiteType) ?? 'wordpress',
     plan: r.plan as string,
     region: r.region as string,
     phpVersion: r.php_version as string,
