@@ -4,7 +4,7 @@ import test from 'node:test'
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-const MIGRATION = 'supabase/migrations/20260806001000_dashboard_content.sql'
+const MIGRATION = 'supabase/migrations/20260806001100_dashboard_content.sql'
 const TABLES = ['service_components', 'maintenance_windows', 'kb_articles']
 
 test('dashboard content tables are created with the service_status enum', async () => {
