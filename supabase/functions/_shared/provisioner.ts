@@ -67,6 +67,7 @@ export interface ProvisionSiteInput {
   userId: string
   siteDomain: string
   siteType?: 'wordpress' | 'nextjs' | 'static' | 'nodejs'
+  database?: 'none' | 'mysql' | 'postgresql'
 }
 
 export interface ProvisionSiteResult {
@@ -365,6 +366,28 @@ function buildMysqlCall(
   }
 }
 
+function buildPostgresqlCall(
+  node: HostingNodeRecord,
+  func:
+    | 'create_database'
+    | 'create_user'
+    | 'grant_all_privileges'
+    | 'delete_database'
+    | 'delete_user',
+  query: Record<string, string>,
+): WhmCallDefinition {
+  return {
+    name: `Postgresql::${func}`,
+    query: {
+      cpanel_jsonapi_user: node.cpanel_username.toLowerCase(),
+      cpanel_jsonapi_apiversion: '3',
+      cpanel_jsonapi_module: 'Postgresql',
+      cpanel_jsonapi_func: func,
+      ...query,
+    },
+  }
+}
+
 function buildAutoSslCall(node: HostingNodeRecord): WhmCallDefinition {
   return {
     name: 'SSL::start_autossl_check',
@@ -624,6 +647,8 @@ export async function provisionWordPressSite(
           db_name: names.fullDatabaseName,
           db_user: names.fullDatabaseUser,
           document_root: toAbsoluteDocumentRoot(normalizedDomain),
+          site_type: 'wordpress',
+          db_type: 'mysql',
         },
       },
     )
@@ -803,8 +828,11 @@ export async function provisionStaticSite(
 // Steps: select-node → create-domain → setup-nodejs-app → enable-ssl → complete
 // No MySQL database or WordPress installer.
 
-function createNodeSteps(): ProvisioningStep[] {
-  return [
+function createNodeSteps(
+  siteType: 'wordpress' | 'nextjs' | 'static' | 'nodejs',
+  database: 'none' | 'mysql' | 'postgresql' = 'none',
+): ProvisioningStep[] {
+  const steps: ProvisioningStep[] = [
     {
       id: 'select-node',
       label: 'Selecting an available node',
@@ -814,15 +842,65 @@ function createNodeSteps(): ProvisioningStep[] {
     {
       id: 'create-domain',
       label: 'Creating isolated domain root',
-      description: "Provisioning the addon domain on the cPanel account.",
+      description: 'Provisioning the addon domain on the cPanel account.',
       state: 'pending',
     },
-    {
+  ]
+
+  if (database === 'mysql') {
+    steps.push(
+      {
+        id: 'create-database',
+        label: 'Creating MySQL database',
+        description: 'Allocating the MySQL database on the chosen node.',
+        state: 'pending',
+      },
+      {
+        id: 'create-user',
+        label: 'Creating MySQL user',
+        description: 'Generating a dedicated MySQL identity for the new site.',
+        state: 'pending',
+      },
+      {
+        id: 'grant-privileges',
+        label: 'Granting database privileges',
+        description: 'Applying the privilege set required for MySQL.',
+        state: 'pending',
+      },
+    )
+  } else if (database === 'postgresql') {
+    steps.push(
+      {
+        id: 'create-database',
+        label: 'Creating PostgreSQL database',
+        description: 'Allocating the PostgreSQL database on the chosen node.',
+        state: 'pending',
+      },
+      {
+        id: 'create-user',
+        label: 'Creating PostgreSQL user',
+        description: 'Generating a dedicated PostgreSQL identity for the new site.',
+        state: 'pending',
+      },
+      {
+        id: 'grant-privileges',
+        label: 'Granting database privileges',
+        description: 'Applying the privilege set required for PostgreSQL.',
+        state: 'pending',
+      },
+    )
+  }
+
+  if (siteType === 'nextjs' || siteType === 'nodejs') {
+    steps.push({
       id: 'setup-nodejs-app',
       label: 'Configuring Node.js runtime',
       description: 'Registering the Node.js application in cPanel App Manager.',
       state: 'pending',
-    },
+    })
+  }
+
+  steps.push(
     {
       id: 'enable-ssl',
       label: 'Starting AutoSSL',
@@ -835,7 +913,9 @@ function createNodeSteps(): ProvisioningStep[] {
       description: 'Recording the finished site inside Supabase.',
       state: 'pending',
     },
-  ]
+  )
+
+  return steps
 }
 
 function buildNodejsAppCall(
@@ -864,12 +944,13 @@ export async function provisionNodeSite(
   const supabase = dependencies.supabase ?? createSupabaseAdminClient(env)
   const executor = dependencies.executor ?? createFetchWhmExecutor()
 
-  let steps = createNodeSteps()
+  const siteType = input.siteType ?? 'nodejs'
+  const database = input.database ?? 'none'
+  let steps = createNodeSteps(siteType, database)
   let node: HostingNodeRecord | null = null
   let reservationId: string | null = null
   const rollbackCalls: WhmCallDefinition[] = []
   let currentStep: ProvisioningStepId = 'select-node'
-  const siteType = input.siteType ?? 'nodejs'
 
   try {
     steps = setStep(steps, 'select-node', 'in_progress')
@@ -883,6 +964,8 @@ export async function provisionNodeSite(
     steps = setStep(steps, 'select-node', 'completed')
 
     const normalizedDomain = sanitizeDomain(input.siteDomain)
+    const databasePassword = generateDatabasePassword()
+    const names = buildDatabaseNames(node, normalizedDomain)
 
     currentStep = 'create-domain'
     steps = setStep(steps, currentStep, 'in_progress')
@@ -890,24 +973,109 @@ export async function provisionNodeSite(
     rollbackCalls.push(buildDelAddonDomainCall(node, normalizedDomain))
     steps = setStep(steps, currentStep, 'completed')
 
-    currentStep = 'setup-nodejs-app'
-    steps = setStep(steps, currentStep, 'in_progress')
-    try {
-      await executeWhmCall(env, executor, buildNodejsAppCall(node, normalizedDomain))
-    } catch (nodeErr) {
-      const message = nodeErr instanceof Error ? nodeErr.message : String(nodeErr)
-      // Only treat "the module isn't installed on this cPanel build" as a
-      // soft skip. Any other failure (auth, malformed request, WHM outage)
-      // must propagate to the outer catch so rollback and the failure
-      // report actually fire, instead of reporting success for a Node.js
-      // app that was never configured.
-      const moduleUnavailable = /unknown module|module.*not (?:found|available|installed|enabled)|not supported/i.test(
-        message,
+    // Optional MySQL Database setup
+    if (database === 'mysql') {
+      currentStep = 'create-database'
+      steps = setStep(steps, currentStep, 'in_progress')
+      await executeWhmCall(
+        env,
+        executor,
+        buildMysqlCall(node, 'create_database', {
+          name: names.rawDatabaseName,
+          'prefix-size': '16',
+        }),
       )
-      if (!moduleUnavailable) throw nodeErr
-      console.warn('NodejsApp::create skipped (module unavailable):', message)
+      rollbackCalls.push(
+        buildMysqlCall(node, 'delete_database', { name: names.fullDatabaseName }),
+      )
+      steps = setStep(steps, currentStep, 'completed')
+
+      currentStep = 'create-user'
+      steps = setStep(steps, currentStep, 'in_progress')
+      await executeWhmCall(
+        env,
+        executor,
+        buildMysqlCall(node, 'create_user', {
+          name: names.rawDatabaseUser,
+          password: databasePassword,
+          'prefix-size': '16',
+        }),
+      )
+      rollbackCalls.push(
+        buildMysqlCall(node, 'delete_user', { name: names.fullDatabaseUser }),
+      )
+      steps = setStep(steps, currentStep, 'completed')
+
+      currentStep = 'grant-privileges'
+      steps = setStep(steps, currentStep, 'in_progress')
+      await executeWhmCall(
+        env,
+        executor,
+        buildMysqlCall(node, 'set_privileges_on_database', {
+          database: names.fullDatabaseName,
+          user: names.fullDatabaseUser,
+          privileges: 'ALL PRIVILEGES',
+        }),
+      )
+      steps = setStep(steps, currentStep, 'completed')
+    } else if (database === 'postgresql') {
+      currentStep = 'create-database'
+      steps = setStep(steps, currentStep, 'in_progress')
+      await executeWhmCall(
+        env,
+        executor,
+        buildPostgresqlCall(node, 'create_database', {
+          name: names.rawDatabaseName,
+        }),
+      )
+      rollbackCalls.push(
+        buildPostgresqlCall(node, 'delete_database', { name: names.fullDatabaseName }),
+      )
+      steps = setStep(steps, currentStep, 'completed')
+
+      currentStep = 'create-user'
+      steps = setStep(steps, currentStep, 'in_progress')
+      await executeWhmCall(
+        env,
+        executor,
+        buildPostgresqlCall(node, 'create_user', {
+          name: names.rawDatabaseUser,
+          password: databasePassword,
+        }),
+      )
+      rollbackCalls.push(
+        buildPostgresqlCall(node, 'delete_user', { name: names.fullDatabaseUser }),
+      )
+      steps = setStep(steps, currentStep, 'completed')
+
+      currentStep = 'grant-privileges'
+      steps = setStep(steps, currentStep, 'in_progress')
+      await executeWhmCall(
+        env,
+        executor,
+        buildPostgresqlCall(node, 'grant_all_privileges', {
+          database: names.fullDatabaseName,
+          user: names.fullDatabaseUser,
+        }),
+      )
+      steps = setStep(steps, currentStep, 'completed')
     }
-    steps = setStep(steps, currentStep, 'completed')
+
+    if (siteType === 'nextjs' || siteType === 'nodejs') {
+      currentStep = 'setup-nodejs-app'
+      steps = setStep(steps, currentStep, 'in_progress')
+      try {
+        await executeWhmCall(env, executor, buildNodejsAppCall(node, normalizedDomain))
+      } catch (nodeErr) {
+        const message = nodeErr instanceof Error ? nodeErr.message : String(nodeErr)
+        const moduleUnavailable = /unknown module|module.*not (?:found|available|installed|enabled)|not supported/i.test(
+          message,
+        )
+        if (!moduleUnavailable) throw nodeErr
+        console.warn('NodejsApp::create skipped (module unavailable):', message)
+      }
+      steps = setStep(steps, currentStep, 'completed')
+    }
 
     currentStep = 'enable-ssl'
     steps = setStep(steps, currentStep, 'in_progress')
@@ -922,10 +1090,11 @@ export async function provisionNodeSite(
         target_reservation_id: reservationId,
         target_user_id: input.userId,
         site_values: {
-          db_name: '',
-          db_user: '',
+          db_name: database !== 'none' ? names.fullDatabaseName : '',
+          db_user: database !== 'none' ? names.fullDatabaseUser : '',
           document_root: toAbsoluteDocumentRoot(normalizedDomain),
           site_type: siteType,
+          db_type: database,
         },
       },
     )
@@ -988,7 +1157,7 @@ export async function deprovisionWordPressSite(
   options: DeprovisionSiteOptions,
   deps: ProvisionerDependencies,
 ): Promise<{ success: boolean; siteDomain: string }> {
-  const supabase = deps.supabase ?? createServiceRoleClient(deps.env)
+  const supabase = deps.supabase ?? createSupabaseAdminClient(loadProvisionerEnv(deps.env))
 
   // 1. Fetch site record and attached hosting node
   const { data: site, error: siteError } = await supabase
@@ -1001,14 +1170,13 @@ export async function deprovisionWordPressSite(
     throw new Error(`Site record ${options.siteId} not found or already deleted`)
   }
 
-  const node: HostingNodeRecord = site.hosting_nodes || {
-    id: site.node_id,
-    cpanel_username: 'maxmark',
-    primary_domain: 'co-s1.serverpanel.com',
-    current_slots: 1,
-    max_slots: 20,
-    status: 'active',
+  if (!site.hosting_nodes) {
+    throw new Error(
+      `Site record ${options.siteId} (${site.site_domain}) has no linked hosting node — aborting deprovision rather than guessing an account.`,
+    )
   }
+
+  const node: HostingNodeRecord = site.hosting_nodes
 
   const executor = deps.executor ?? createFetchWhmExecutor()
 
@@ -1020,22 +1188,33 @@ export async function deprovisionWordPressSite(
     console.warn(`WHM deladdondomain notice for ${site.site_domain}:`, err)
   }
 
-  // 3. WHM: Delete MySQL Database
-  try {
+  // 3. WHM: Delete Database & User (MySQL or PostgreSQL)
+  const dbType = site.db_type || (site.db_name ? 'mysql' : 'none')
+  if (site.db_name && dbType !== 'none') {
     const dbNames = buildDatabaseNames(node, site.site_domain)
-    const delDbCall = buildMysqlCall(node, 'delete_database', { name: dbNames.fullDatabaseName })
-    await executeWhmCall(deps.env, executor, delDbCall)
-  } catch (err) {
-    console.warn(`WHM delete_database notice for ${site.site_domain}:`, err)
-  }
-
-  // 4. WHM: Delete MySQL User
-  try {
-    const dbNames = buildDatabaseNames(node, site.site_domain)
-    const delUserCall = buildMysqlCall(node, 'delete_user', { name: dbNames.fullDatabaseUser })
-    await executeWhmCall(deps.env, executor, delUserCall)
-  } catch (err) {
-    console.warn(`WHM delete_user notice for ${site.site_domain}:`, err)
+    if (dbType === 'postgresql') {
+      try {
+        await executeWhmCall(deps.env, executor, buildPostgresqlCall(node, 'delete_database', { name: site.db_name }))
+      } catch (err) {
+        console.warn(`WHM PostgreSQL delete_database notice for ${site.site_domain}:`, err)
+      }
+      try {
+        await executeWhmCall(deps.env, executor, buildPostgresqlCall(node, 'delete_user', { name: site.db_user || dbNames.fullDatabaseUser }))
+      } catch (err) {
+        console.warn(`WHM PostgreSQL delete_user notice for ${site.site_domain}:`, err)
+      }
+    } else {
+      try {
+        await executeWhmCall(deps.env, executor, buildMysqlCall(node, 'delete_database', { name: site.db_name }))
+      } catch (err) {
+        console.warn(`WHM MySQL delete_database notice for ${site.site_domain}:`, err)
+      }
+      try {
+        await executeWhmCall(deps.env, executor, buildMysqlCall(node, 'delete_user', { name: site.db_user || dbNames.fullDatabaseUser }))
+      } catch (err) {
+        console.warn(`WHM MySQL delete_user notice for ${site.site_domain}:`, err)
+      }
+    }
   }
 
   // 5. Delete site record from Supabase user_sites

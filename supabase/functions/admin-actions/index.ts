@@ -260,10 +260,56 @@ async function setSiteStatus(
   return ok({ site: data }, 'site', body.siteId)
 }
 
+async function configureNodeOnWhm(cpanelUsername: string): Promise<{ ok: boolean; reason: string }> {
+  const whmHost = Deno.env.get('WHM_HOST') ?? ''
+  const whmPort = Deno.env.get('WHM_PORT') ?? '2087'
+  const whmUser = Deno.env.get('WHM_API_USERNAME') ?? ''
+  const whmToken = Deno.env.get('WHM_MASTER_TOKEN') ?? ''
+  const mock = (Deno.env.get('MOCK_WHM_REQUESTS') ?? 'false').toLowerCase() === 'true'
+
+  if (mock) return { ok: true, reason: 'mock' }
+  if (!whmHost || !whmToken) return { ok: false, reason: 'WHM credentials not configured' }
+
+  const cleanHost = whmHost.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').trim()
+  const params = new URLSearchParams({
+    'api.version': '1',
+    user: cpanelUsername,
+    MAXADDON: 'unlimited',
+    MAXSUB: 'unlimited',
+    MAXFTP: 'unlimited',
+    MAXPOP: 'unlimited',
+    MAXSQL: 'unlimited',
+    MAXLST: 'unlimited',
+    MAXPARK: 'unlimited',
+  })
+  const url = `https://${cleanHost}:${whmPort}/json-api/modifyacct?${params.toString()}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `whm ${whmUser}:${whmToken}`,
+        Accept: 'application/json',
+      },
+    })
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>
+    const meta = body?.metadata as Record<string, unknown> | undefined
+    if (!response.ok || meta?.result !== 1) {
+      const reason = (meta?.reason as string) ?? `HTTP ${response.status}`
+      return { ok: false, reason }
+    }
+    return { ok: true, reason: meta?.reason as string ?? 'OK' }
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 async function createNode(
   admin: SupabaseClient,
   body: Extract<ActionBody, { action: 'create_node' }>,
 ): Promise<ActionOutcome> {
+  // 1. Persist the node record first so we get an ID even if WHM config is
+  //    a soft failure (the admin can retry the WHM step manually if needed).
   const { data, error } = await admin
     .from('hosting_nodes')
     .insert({
@@ -279,7 +325,18 @@ async function createNode(
     const status = error.message.includes('duplicate') ? 409 : 500
     throw new ActionError(`Unable to create node: ${error.message}`, status)
   }
-  return ok({ node: data }, 'node', data.id as string)
+
+  // 2. Apply unlimited resource limits to the cPanel account on WHM so that
+  //    provisioning can create addon domains without hitting quota errors.
+  const whmResult = await configureNodeOnWhm(body.cpanelUsername)
+  if (!whmResult.ok) {
+    console.warn(
+      `createNode: WHM modifyacct for "${body.cpanelUsername}" failed — ${whmResult.reason}. ` +
+      `Node was saved to DB but you must manually set unlimited addon domains in WHM.`,
+    )
+  }
+
+  return ok({ node: data, whmConfigured: whmResult.ok, whmReason: whmResult.reason }, 'node', data.id as string)
 }
 
 async function updateNode(

@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { mapDbPurchaseToPluginPurchase } from '@/lib/db/marketplace'
 import type { PluginPurchase } from '@/types/marketplace'
-import type { ProvisioningStep, SiteType, UserSiteRecord } from '@/types/provisioning'
+import type { DbType, ProvisioningStep, SiteType, UserSiteRecord } from '@/types/provisioning'
 
 interface FunctionEnvelope<T> {
   success: boolean
@@ -63,10 +63,12 @@ export function provisionSiteViaFunction(
   supabase: SupabaseClient,
   siteDomain: string,
   siteType: SiteType = 'wordpress',
+  database?: DbType,
 ): Promise<ProvisionSiteFunctionResult> {
   return invoke<ProvisionSiteFunctionResult>(supabase, 'provision-site', {
     siteDomain,
     siteType,
+    database,
   })
 }
 
@@ -242,4 +244,26 @@ export async function claimMarketplaceItem(
   )
 
   return mapDbPurchaseToPluginPurchase(purchase)
+}
+
+export function updateGitConfig(
+  supabase: SupabaseClient,
+  siteId: string,
+  config: { githubRepoUrl?: string | null; githubBranch?: string; autoDeployEnabled?: boolean },
+): Promise<{ site: UserSiteRecord }> {
+  return invoke<{ site: UserSiteRecord }>(supabase, 'git-deploy', {
+    action: 'update_config',
+    siteId,
+    ...config,
+  })
+}
+
+export function triggerGitDeploy(
+  supabase: SupabaseClient,
+  siteId: string,
+): Promise<{ site: UserSiteRecord }> {
+  return invoke<{ site: UserSiteRecord }>(supabase, 'git-deploy', {
+    action: 'deploy',
+    siteId,
+  })
 }

@@ -59,6 +59,7 @@ const mainNavItems = [
 // Site-specific sub-sidebar links
 const siteNavItems = [
   { label: 'Overview', tabId: 'credentials', icon: Home },
+  { label: 'Git & CI/CD', tabId: 'git-cicd', icon: GitBranch },
   { label: 'SFTP / SSH', tabId: 'sftp', icon: Key },
   { label: 'Cloudflare Integration', tabId: 'cloudflare', icon: Cloud },
   { label: 'WordPress Backups', tabId: 'backups', icon: History },

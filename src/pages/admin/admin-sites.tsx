@@ -39,6 +39,13 @@ const siteTone: Record<AdminSiteRow['status'], BadgeTone> = {
   failed: 'red',
 }
 
+const deployTone: Record<AdminSiteRow['lastDeployStatus'], BadgeTone> = {
+  idle: 'zinc',
+  deploying: 'sky',
+  success: 'green',
+  failed: 'red',
+}
+
 const statusFilters = ['all', 'active', 'provisioning', 'suspended', 'failed'] as const
 type StatusFilter = (typeof statusFilters)[number]
 
@@ -310,6 +317,7 @@ export function AdminSites() {
             <tr className={theadRowClass}>
               <th className={thClass}>Domain</th>
               <th className={thClass}>Type</th>
+              <th className={thClass}>Deploy</th>
               <th className={thClass}>Owner</th>
               <th className={thClass}>Node</th>
               <th className={thClass}>Plan</th>
@@ -331,6 +339,26 @@ export function AdminSites() {
                         : site.siteType === 'nodejs' ? 'Node.js'
                         : 'WordPress'}
                     </span>
+                  </td>
+                  <td className={cellClass}>
+                    {site.githubRepoUrl ? (
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge tone={deployTone[site.lastDeployStatus]}>
+                          {site.lastDeployStatus}
+                        </StatusBadge>
+                        <a
+                          className="text-muted-foreground hover:text-white transition"
+                          href={site.githubRepoUrl}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                          title={`${site.githubRepoUrl} (${site.githubBranch})`}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className={cellClass}>
                     <Link

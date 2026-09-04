@@ -13,18 +13,14 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
+import { GitHubRepoPicker } from '@/components/github-repo-picker'
+import { updateGitConfig } from '@/lib/functions'
+import { supabase } from '@/lib/supabase'
 import { provisionSite } from '@/services/provisioningService'
-import type { ManagedSite, ProvisioningStep, SiteType } from '@/types/provisioning'
+import type { DbType, ManagedSite, ProvisioningStep, SiteType } from '@/types/provisioning'
 import { WordPressLogo } from '@/components/icons/wordpress-logo'
 
 interface CreateSiteModalProps {
@@ -115,25 +111,34 @@ export function CreateSiteModal({
   onSiteCreated,
 }: CreateSiteModalProps) {
   const [siteType, setSiteType] = useState<SiteType>('wordpress')
+  const [databaseChoice, setDatabaseChoice] = useState<DbType>('none')
+  const [githubRepoUrl, setGithubRepoUrl] = useState('')
+  const [githubBranch, setGithubBranch] = useState('main')
   const [step, setStep] = useState<'pick-type' | 'configure' | 'provisioning' | 'success'>('pick-type')
   const [domain, setDomain] = useState('')
   const [steps, setSteps] = useState<ProvisioningStep[]>([])
   const [errorMessage, setErrorMessage] = useState('')
   const [createdSite, setCreatedSite] = useState<ManagedSite | null>(null)
+  const [gitConfigWarning, setGitConfigWarning] = useState('')
   const deferredDomain = useDeferredValue(domain)
   const normalizedPreview = sanitizeDomain(deferredDomain)
   const completedSteps = steps.filter((s) => s.state === 'completed').length
   const progressValue = steps.length ? (completedSteps / steps.length) * 100 : 0
 
   const selectedTypeOption = SITE_TYPE_OPTIONS.find((o) => o.type === siteType)!
+  const effectiveDatabase: DbType = siteType === 'wordpress' ? 'mysql' : databaseChoice
 
   function resetState() {
     setSiteType('wordpress')
+    setDatabaseChoice('none')
+    setGithubRepoUrl('')
+    setGithubBranch('main')
     setStep('pick-type')
     setDomain('')
     setSteps([])
     setErrorMessage('')
     setCreatedSite(null)
+    setGitConfigWarning('')
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -152,8 +157,25 @@ export function CreateSiteModal({
       const site = await provisionSite(domain, {
         existingDomains: existingDomains ?? [],
         siteType,
+        database: effectiveDatabase,
         onProgress: setSteps,
       })
+
+      if (githubRepoUrl && supabase) {
+        try {
+          await updateGitConfig(supabase, site.id, {
+            githubRepoUrl,
+            githubBranch,
+            autoDeployEnabled: true,
+          })
+        } catch (gitErr) {
+          setGitConfigWarning(
+            gitErr instanceof Error
+              ? `The site was created, but linking the GitHub repository failed: ${gitErr.message}. You can connect it from the site's Git & CI/CD tab.`
+              : "The site was created, but linking the GitHub repository failed. You can connect it from the site's Git & CI/CD tab.",
+          )
+        }
+      }
 
       setCreatedSite(site)
       setStep('success')
@@ -253,27 +275,95 @@ export function CreateSiteModal({
 
       <form className="space-y-6 text-xs" onSubmit={handleSubmit}>
         <div className="grid gap-4 sm:grid-cols-[1fr_260px]">
-          <div className="space-y-3">
-            <label
-              className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block"
-              htmlFor="domain"
-            >
-              Primary domain
-            </label>
-            <Input
-              id="domain"
-              autoFocus
-              autoComplete="off"
-              disabled={step === 'provisioning'}
-              onChange={(event) => setDomain(event.target.value)}
-              placeholder="client-site.com"
-              value={domain}
-              className="bg-[#121214] border-[#232328] text-white text-xs placeholder:text-muted-foreground focus:border-[#5c4df0]/50"
-            />
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Use the final production domain. Maxmark will build the document root
-              under `/maxmark_sites/{normalizedPreview || 'client-site.com'}`.
-            </p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label
+                className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block"
+                htmlFor="domain"
+              >
+                Primary domain
+              </label>
+              <Input
+                id="domain"
+                autoFocus
+                autoComplete="off"
+                disabled={step === 'provisioning'}
+                onChange={(event) => setDomain(event.target.value)}
+                placeholder="client-site.com"
+                value={domain}
+                className="bg-[#121214] border-[#232328] text-white text-xs placeholder:text-muted-foreground focus:border-[#5c4df0]/50"
+              />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Use the final production domain. Maxmark will build the document root
+                under `/maxmark_sites/{normalizedPreview || 'client-site.com'}`.
+              </p>
+            </div>
+
+            {siteType !== 'wordpress' && (
+              <div className="space-y-2 pt-1 border-t border-[#232328]/60">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                  Database engine
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    disabled={step === 'provisioning'}
+                    onClick={() => setDatabaseChoice('none')}
+                    className={`px-3 py-2 rounded-md border text-left transition ${
+                      databaseChoice === 'none'
+                        ? 'border-[#5c4df0] bg-[#5c4df0]/10 text-white font-semibold'
+                        : 'border-[#232328] bg-[#121214] text-muted-foreground hover:border-[#3d3d44] hover:text-white'
+                    }`}
+                  >
+                    <div className="text-[11px] font-medium">None</div>
+                    <div className="text-[9px] opacity-75">No database</div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={step === 'provisioning'}
+                    onClick={() => setDatabaseChoice('mysql')}
+                    className={`px-3 py-2 rounded-md border text-left transition ${
+                      databaseChoice === 'mysql'
+                        ? 'border-[#5c4df0] bg-[#5c4df0]/10 text-white font-semibold'
+                        : 'border-[#232328] bg-[#121214] text-muted-foreground hover:border-[#3d3d44] hover:text-white'
+                    }`}
+                  >
+                    <div className="text-[11px] font-medium">MySQL</div>
+                    <div className="text-[9px] opacity-75">MariaDB / MySQL</div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={step === 'provisioning'}
+                    onClick={() => setDatabaseChoice('postgresql')}
+                    className={`px-3 py-2 rounded-md border text-left transition ${
+                      databaseChoice === 'postgresql'
+                        ? 'border-[#5c4df0] bg-[#5c4df0]/10 text-white font-semibold'
+                        : 'border-[#232328] bg-[#121214] text-muted-foreground hover:border-[#3d3d44] hover:text-white'
+                    }`}
+                  >
+                    <div className="text-[11px] font-medium">PostgreSQL</div>
+                    <div className="text-[9px] opacity-75">cPanel Postgres</div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {siteType !== 'wordpress' && (
+              <div className="space-y-2 pt-2 border-t border-[#232328]/60">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                  GitHub Repository (Vercel-Style Auto-Deploy)
+                </label>
+                <GitHubRepoPicker
+                  currentRepoUrl={githubRepoUrl}
+                  currentBranch={githubBranch}
+                  onSelect={({ repoUrl, branch }) => {
+                    setGithubRepoUrl(repoUrl)
+                    setGithubBranch(branch)
+                  }}
+                />
+              </div>
+            )}
+
             {errorMessage ? (
               <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-300">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
@@ -309,7 +399,7 @@ export function CreateSiteModal({
               </div>
               <div className="flex items-start gap-2.5">
                 <div className="rounded bg-[#202024] p-1.5 text-[#5c4df0] border border-[#2d2d34] shrink-0">
-                  {selectedTypeOption.showDb ? (
+                  {effectiveDatabase !== 'none' ? (
                     <Database className="h-3.5 w-3.5" />
                   ) : (
                     <Server className="h-3.5 w-3.5" />
@@ -317,9 +407,9 @@ export function CreateSiteModal({
                 </div>
                 <div className="space-y-0.5 min-w-0">
                   <span className="text-[9px] uppercase font-semibold text-muted-foreground block">
-                    {selectedTypeOption.showDb ? 'MySQL seed' : 'Runtime'}
+                    {effectiveDatabase !== 'none' ? `${effectiveDatabase === 'postgresql' ? 'PostgreSQL' : 'MySQL'} Database` : 'Runtime'}
                   </span>
-                  {selectedTypeOption.showDb ? (
+                  {effectiveDatabase !== 'none' ? (
                     <>
                       <p className="font-semibold text-white font-mono truncate">
                         {toDbPreview(normalizedPreview || 'client-site.com')}
@@ -425,6 +515,12 @@ export function CreateSiteModal({
           </p>
         </div>
       </div>
+      {gitConfigWarning ? (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+          <p className="text-amber-300/90 leading-relaxed text-[11px]">{gitConfigWarning}</p>
+        </div>
+      ) : null}
       <div className={`grid gap-3 text-xs ${selectedTypeOption.showDb ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <div className="rounded-md border border-[#232328] bg-[#121214] p-4 space-y-1">
           <span className="text-[10px] text-muted-foreground uppercase font-semibold">Domain</span>

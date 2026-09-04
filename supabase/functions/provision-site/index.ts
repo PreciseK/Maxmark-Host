@@ -34,6 +34,7 @@ const bodySchema = z.object({
       'siteDomain must be a valid domain like client-site.com',
     ),
   siteType: z.enum(['wordpress', 'nextjs', 'static', 'nodejs']).default('wordpress'),
+  database: z.enum(['none', 'mysql', 'postgresql']).optional(),
 })
 
 Deno.serve(async (request) => {
@@ -77,12 +78,24 @@ Deno.serve(async (request) => {
     return errorResponse(message, 400)
   }
 
+  let databaseChoice = body.database
+  if (body.siteType === 'wordpress') {
+    databaseChoice = 'mysql'
+  } else {
+    databaseChoice = databaseChoice ?? 'none'
+  }
+
   const useMockWhm =
     (Deno.env.get('MOCK_WHM_REQUESTS') ?? 'true').toLowerCase() === 'true'
 
   try {
     const result = await provisionSite(
-      { userId: user.id, siteDomain: body.siteDomain, siteType: body.siteType },
+      {
+        userId: user.id,
+        siteDomain: body.siteDomain,
+        siteType: body.siteType,
+        database: databaseChoice,
+      },
       {
         env: Deno.env.toObject(),
         executor: useMockWhm ? createMockWhmExecutor() : undefined,

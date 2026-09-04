@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ManagedSite, SiteType, UserSiteStatus } from '@/types/provisioning'
+import type { DbType, ManagedSite, SiteType, UserSiteStatus } from '@/types/provisioning'
 
 interface DbNodeRow {
   primary_domain: string
@@ -40,6 +40,14 @@ interface DbSiteRow {
   created_at: string
   updated_at: string
   site_type: SiteType
+  db_type: DbType | null
+  github_repo_url: string | null
+  github_branch: string | null
+  auto_deploy_enabled: boolean | null
+  deploy_webhook_token: string | null
+  last_deployed_at: string | null
+  last_deploy_status: string | null
+  last_deploy_log: string | null
   hosting_nodes: DbNodeRow | null
 }
 
@@ -55,6 +63,14 @@ function mapDbSiteToManagedSite(row: DbSiteRow): ManagedSite {
     document_root: row.document_root,
     status: row.status as UserSiteStatus,
     siteType: row.site_type ?? 'wordpress',
+    db_type: row.db_type ?? 'none',
+    github_repo_url: row.github_repo_url,
+    github_branch: row.github_branch ?? 'main',
+    auto_deploy_enabled: row.auto_deploy_enabled ?? false,
+    deploy_webhook_token: row.deploy_webhook_token ?? undefined,
+    last_deployed_at: row.last_deployed_at,
+    last_deploy_status: (row.last_deploy_status as ManagedSite['last_deploy_status']) ?? 'idle',
+    last_deploy_log: row.last_deploy_log,
     created_at: row.created_at,
     updated_at: row.updated_at,
     plan: row.plan,

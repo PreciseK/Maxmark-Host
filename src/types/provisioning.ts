@@ -1,6 +1,7 @@
 export type HostingNodeStatus = 'active' | 'full'
 export type UserSiteStatus = 'provisioning' | 'active' | 'suspended' | 'failed'
 export type SiteType = 'wordpress' | 'nextjs' | 'static' | 'nodejs'
+export type DbType = 'none' | 'mysql' | 'postgresql'
 
 export interface HostingNodeRecord {
   id: string
@@ -20,7 +21,15 @@ export interface UserSiteRecord {
   document_root: string
   status: UserSiteStatus
   siteType: SiteType
+  db_type?: DbType
   wp_admin_password?: string
+  github_repo_url?: string | null
+  github_branch?: string
+  auto_deploy_enabled?: boolean
+  deploy_webhook_token?: string
+  last_deployed_at?: string | null
+  last_deploy_status?: 'idle' | 'deploying' | 'success' | 'failed'
+  last_deploy_log?: string | null
   created_at?: string
   updated_at?: string
 }

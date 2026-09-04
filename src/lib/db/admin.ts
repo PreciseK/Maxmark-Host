@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { SiteType } from '@/types/provisioning'
+import type { DbType, SiteType } from '@/types/provisioning'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +47,12 @@ export interface AdminSiteRow {
   siteDomain: string
   status: 'provisioning' | 'active' | 'suspended' | 'failed'
   siteType: SiteType
+  dbType: DbType
+  githubRepoUrl: string | null
+  githubBranch: string
+  autoDeployEnabled: boolean
+  lastDeployedAt: string | null
+  lastDeployStatus: 'idle' | 'deploying' | 'success' | 'failed'
   plan: string
   region: string
   phpVersion: string
@@ -199,6 +205,12 @@ function mapSite(r: Row): AdminSiteRow {
     siteDomain: r.site_domain as string,
     status: r.status as AdminSiteRow['status'],
     siteType: (r.site_type as SiteType) ?? 'wordpress',
+    dbType: (r.db_type as DbType) ?? 'none',
+    githubRepoUrl: (r.github_repo_url as string | null) ?? null,
+    githubBranch: (r.github_branch as string) ?? 'main',
+    autoDeployEnabled: (r.auto_deploy_enabled as boolean) ?? false,
+    lastDeployedAt: (r.last_deployed_at as string | null) ?? null,
+    lastDeployStatus: (r.last_deploy_status as AdminSiteRow['lastDeployStatus']) ?? 'idle',
     plan: r.plan as string,
     region: r.region as string,
     phpVersion: r.php_version as string,
