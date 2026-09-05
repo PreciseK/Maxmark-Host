@@ -455,17 +455,21 @@
     .price-per { font-size: 13px; color: rgba(255,255,255,0.3); }
     .price-desc { font-size: 13px; color: rgba(255,255,255,0.28); margin-bottom: 26px; line-height: 1.5; }
     .btn-price-outline {
+      display: flex; align-items: center; justify-content: center; text-decoration: none;
       width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.14);
       color: #fff; padding: 11px; border-radius: 0px; font-size: 13px; font-weight: 700;
       cursor: pointer; margin-bottom: 24px; transition: border-color 0.15s;
+      box-sizing: border-box; text-align: center;
     }
-    .btn-price-outline:hover { border-color: rgba(255,255,255,0.3); }
+    .btn-price-outline:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
     .btn-price-primary {
+      display: flex; align-items: center; justify-content: center; text-decoration: none;
       width: 100%; background: var(--accent); border: none; color: #fff;
       padding: 11px; border-radius: 0px; font-size: 13px; font-weight: 700;
       cursor: pointer; margin-bottom: 24px; transition: background 0.15s;
+      box-sizing: border-box; text-align: center;
     }
-    .btn-price-primary:hover { background: var(--accent-h); }
+    .btn-price-primary:hover { background: var(--accent-h); color: #fff; }
     .price-feature { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
     .price-feature span { font-size: 13px; color: rgba(255,255,255,0.42); }
 
