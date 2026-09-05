@@ -516,50 +516,53 @@ export function DocsPage() {
   return (
     <div className="min-h-screen bg-[#060606] text-white flex flex-col selection:bg-[#5c4df0]/30 selection:text-white">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#060606]/90 backdrop-blur-md px-6 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link className="flex items-center gap-2" to="/">
-            <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
-            <span className="text-white/20 font-mono text-xs">/</span>
-            <span className="text-[#a89cf7] font-mono text-xs font-semibold">docs</span>
-          </Link>
-          <span className="hidden sm:inline-block text-xs font-mono text-white/30 px-2 py-0.5 rounded border border-white/10">
-            v2.4
-          </span>
-        </div>
-
-        {/* Search bar */}
-        <div className="flex items-center gap-4 flex-1 max-w-md mx-6">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
-            <input
-              className="w-full bg-[#121214] border border-white/10 rounded-md pl-9 pr-4 py-1.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#5c4df0] transition"
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search guides, runtimes, commands..."
-              type="text"
-              value={searchQuery}
-            />
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#060606]/90 backdrop-blur-md px-6 sm:px-8 h-[62px] flex items-center">
+        <div className="max-w-[1180px] w-full mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link className="flex items-center gap-2" to="/">
+              <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
+              <span className="text-white/20 font-mono text-xs">/</span>
+              <span className="text-[#a89cf7] font-mono text-xs font-semibold">docs</span>
+            </Link>
+            <span className="hidden sm:inline-block text-xs font-mono text-white/30 px-2 py-0.5 rounded border border-white/10">
+              v2.4
+            </span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            className="text-xs font-medium text-white/70 hover:text-white transition px-3 py-1.5 rounded hover:bg-white/5"
-            to="/changelog"
-          >
-            Changelog
-          </Link>
-          <Link
-            className="text-xs font-semibold bg-[#5c4df0] hover:bg-[#7c6ef4] text-white px-3.5 py-1.5 rounded transition shadow-sm"
-            to="/login"
-          >
-            Console
-          </Link>
+          {/* Search bar */}
+          <div className="flex items-center gap-4 flex-1 max-w-md mx-6">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
+              <input
+                className="w-full bg-[#121214] border border-white/10 rounded-md pl-9 pr-4 py-1.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#5c4df0] transition"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search guides, runtimes, commands..."
+                type="text"
+                value={searchQuery}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link
+              className="text-xs font-medium text-white/70 hover:text-white transition px-3 py-1.5 rounded hover:bg-white/5"
+              to="/changelog"
+            >
+              Changelog
+            </Link>
+            <Link
+              className="text-xs font-semibold bg-[#5c4df0] hover:bg-[#7c6ef4] text-white px-3.5 py-1.5 rounded transition shadow-sm"
+              to="/login"
+            >
+              Console
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row">
+      <div className="flex-1 w-full px-6 sm:px-8">
+        <div className="max-w-[1180px] w-full mx-auto flex flex-col md:flex-row min-h-[calc(100vh-62px)]">
         {/* Left Sidebar */}
         <aside className="w-full md:w-64 shrink-0 border-r border-white/10 p-5 space-y-6 bg-[#08080a]">
           <div className="text-[11px] font-mono uppercase tracking-widest text-white/40">Documentation</div>
@@ -789,6 +792,7 @@ export function DocsPage() {
         </main>
       </div>
     </div>
+  </div>
   )
 }
 export default DocsPage

@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import {
   Calendar,
-  Sparkles,
 } from 'lucide-react'
 
 interface Release {
@@ -130,38 +129,40 @@ export function ChangelogPage() {
   return (
     <div className="min-h-screen bg-[#060606] text-white flex flex-col selection:bg-[#5c4df0]/30 selection:text-white">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#060606]/90 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <Link className="flex items-center gap-2" to="/">
-          <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
-          <span className="text-white/20 font-mono text-xs">/</span>
-          <span className="text-[#a89cf7] font-mono text-xs font-semibold">changelog</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link className="text-xs text-white/60 hover:text-white transition" to="/docs">
-            Documentation
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#060606]/90 backdrop-blur-md px-6 sm:px-8 h-[62px] flex items-center">
+        <div className="max-w-[1180px] w-full mx-auto flex items-center justify-between">
+          <Link className="flex items-center gap-2" to="/">
+            <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
+            <span className="text-white/20 font-mono text-xs">/</span>
+            <span className="text-[#a89cf7] font-mono text-xs font-semibold">changelog</span>
           </Link>
-          <Link
-            className="text-xs font-semibold bg-[#5c4df0] hover:bg-[#7c6ef4] text-white px-3.5 py-1.5 rounded transition"
-            to="/login"
-          >
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link className="text-xs text-white/60 hover:text-white transition" to="/docs">
+              Documentation
+            </Link>
+            <Link
+              className="text-xs font-semibold bg-[#5c4df0] hover:bg-[#7c6ef4] text-white px-3.5 py-1.5 rounded transition"
+              to="/login"
+            >
+              Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-6 md:p-12 space-y-12">
-        <div className="max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#a89cf7] px-2.5 py-1 rounded bg-[#5c4df0]/10 border border-[#5c4df0]/20">
-            <Sparkles className="h-3.5 w-3.5" />
-            Platform Evolution
+      <main className="flex-1 w-full px-6 sm:px-8 py-10 md:py-16 text-white">
+        <div className="max-w-[1180px] w-full mx-auto space-y-12">
+          <div className="max-w-2xl space-y-3">
+            <div className="inline-flex items-center text-xs font-mono uppercase tracking-widest text-[#a89cf7] px-2.5 py-1 rounded bg-[#5c4df0]/10 border border-[#5c4df0]/20">
+              Platform Evolution
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Changelog & Release Notes</h1>
+            <p className="text-sm md:text-base text-white/60 leading-relaxed">
+              Stay updated with new runtimes, infrastructure improvements, performance upgrades, and security fixes
+              shipped to Maxmark Host.
+            </p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Changelog & Release Notes</h1>
-          <p className="text-sm md:text-base text-white/60 leading-relaxed">
-            Stay updated with new runtimes, infrastructure improvements, performance upgrades, and security fixes
-            shipped to Maxmark Host.
-          </p>
-        </div>
 
         {/* Timeline of Releases */}
         <div className="space-y-10 border-l border-white/10 pl-6 sm:pl-8 ml-2">
@@ -213,12 +214,13 @@ export function ChangelogPage() {
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="pt-8 border-t border-white/10 flex items-center justify-between text-xs text-white/40">
-          <div>Have a feature request or suggestion?</div>
-          <Link className="text-[#a89cf7] hover:underline" to="/contact">
-            Submit feedback →
-          </Link>
+          {/* Footer */}
+          <div className="pt-8 border-t border-white/10 flex items-center justify-between text-xs text-white/40">
+            <div>Have a feature request or suggestion?</div>
+            <Link className="text-[#a89cf7] hover:underline" to="/contact">
+              Submit feedback →
+            </Link>
+          </div>
         </div>
       </main>
     </div>

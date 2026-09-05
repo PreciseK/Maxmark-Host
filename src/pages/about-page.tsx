@@ -10,7 +10,6 @@ import {
   HelpCircle,
   Server,
   Shield,
-  Sparkles,
   Terminal,
   Zap,
 } from 'lucide-react'
@@ -116,13 +115,13 @@ export function AboutPage() {
   ]
 
   return (
-    <main className="flex-1 max-w-5xl w-full mx-auto p-6 md:p-12 space-y-20 text-white">
-      {/* ─── HERO / MISSION ─── */}
-      <div className="max-w-3xl space-y-5">
-        <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#a89cf7] px-2.5 py-1 rounded bg-[#5c4df0]/10 border border-[#5c4df0]/20">
-          <Sparkles className="h-3.5 w-3.5" />
-          Who We Are & What We Build
-        </div>
+    <main className="flex-1 w-full px-6 sm:px-8 py-10 md:py-16 text-white">
+      <div className="max-w-[1180px] w-full mx-auto space-y-20">
+        {/* ─── HERO / MISSION ─── */}
+        <div className="max-w-3xl space-y-5">
+          <div className="inline-flex items-center text-xs font-mono uppercase tracking-widest text-[#a89cf7] px-2.5 py-1 rounded bg-[#5c4df0]/10 border border-[#5c4df0]/20">
+            Who We Are & What We Build
+          </div>
         <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white leading-tight">
           Cloud hosting engineered for speed, developer autonomy, and zero complexity.
         </h1>
@@ -340,7 +339,8 @@ export function AboutPage() {
           </Link>
         </div>
       </div>
-    </main>
+    </div>
+  </main>
   )
 }
 export default AboutPage

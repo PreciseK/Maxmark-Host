@@ -54,19 +54,21 @@ export function LegalPage() {
   }
 
   return (
-    <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-12 text-white">
-      <article className="space-y-8">
-        <header>
-          <p className="text-sm text-white/50">Last updated July 31, 2026</p>
-          <h1 className="mt-2 text-4xl font-semibold">{content.title}</h1>
-        </header>
-        {content.sections.map(([heading, body]) => (
-          <section className="space-y-2" key={heading}>
-            <h2 className="text-xl font-semibold">{heading}</h2>
-            <p className="leading-7 text-white/70">{body}</p>
-          </section>
-        ))}
-      </article>
+    <main className="flex-1 w-full px-6 sm:px-8 py-10 md:py-16 text-white">
+      <div className="max-w-[1180px] w-full mx-auto">
+        <article className="space-y-8 max-w-4xl">
+          <header>
+            <p className="text-sm text-white/50">Last updated July 31, 2026</p>
+            <h1 className="mt-2 text-4xl font-semibold">{content.title}</h1>
+          </header>
+          {content.sections.map(([heading, body]) => (
+            <section className="space-y-2" key={heading}>
+              <h2 className="text-xl font-semibold">{heading}</h2>
+              <p className="leading-7 text-white/70">{body}</p>
+            </section>
+          ))}
+        </article>
+      </div>
     </main>
   )
 }
