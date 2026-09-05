@@ -545,9 +545,9 @@ export function DocsPage() {
         <div className="flex items-center gap-3">
           <Link
             className="text-xs font-medium text-white/70 hover:text-white transition px-3 py-1.5 rounded hover:bg-white/5"
-            to="/status"
+            to="/changelog"
           >
-            System Status
+            Changelog
           </Link>
           <Link
             className="text-xs font-semibold bg-[#5c4df0] hover:bg-[#7c6ef4] text-white px-3.5 py-1.5 rounded transition shadow-sm"

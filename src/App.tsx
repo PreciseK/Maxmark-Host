@@ -9,6 +9,7 @@ import { fetchPlugins, fetchPurchases } from '@/lib/db/marketplace'
 import { configurationError, supabase } from '@/lib/supabase'
 import { SessionProvider } from '@/lib/session-context'
 import { DashboardShell } from '@/layouts/dashboard-shell'
+import { PublicShell } from '@/layouts/public-shell'
 import type { MarketplacePlugin, PluginPurchase } from '@/types/marketplace'
 import type { ManagedSite } from '@/types/provisioning'
 
@@ -190,12 +191,21 @@ export function App() {
           }
           path="/login"
         />
-        <Route element={<LegalPage />} path="/legal/:policy" />
+        <Route element={<PublicShell />}>
+          <Route element={<AboutPage />} path="/about" />
+          <Route element={<ContactPage />} path="/contact" />
+          <Route element={<LegalPage />} path="/legal/:policy" />
+        </Route>
         <Route element={<DocsPage />} path="/docs" />
-        <Route element={<StatusPage />} path="/status" />
-        <Route element={<ContactPage />} path="/contact" />
-        <Route element={<AboutPage />} path="/about" />
         <Route element={<ChangelogPage />} path="/changelog" />
+        <Route
+          element={
+            <CustomerRoute>
+              <StatusPage />
+            </CustomerRoute>
+          }
+          path="/status"
+        />
         <Route
           element={
             <Suspense fallback={<div className="min-h-screen bg-[#121214]" />}>

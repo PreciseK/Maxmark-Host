@@ -25,29 +25,7 @@ export function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060606] text-white flex flex-col selection:bg-[#5c4df0]/30 selection:text-white">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#060606]/90 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <Link className="flex items-center gap-2" to="/">
-          <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
-          <span className="text-white/20 font-mono text-xs">/</span>
-          <span className="text-[#a89cf7] font-mono text-xs font-semibold">contact</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link className="text-xs text-white/60 hover:text-white transition" to="/docs">
-            Documentation
-          </Link>
-          <Link
-            className="text-xs font-semibold bg-[#5c4df0] hover:bg-[#7c6ef4] text-white px-3.5 py-1.5 rounded transition"
-            to="/login"
-          >
-            Dashboard
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-6 md:p-12 space-y-12">
+    <main className="flex-1 max-w-5xl w-full mx-auto p-6 md:p-12 space-y-12">
         <div className="max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#a89cf7] px-2.5 py-1 rounded bg-[#5c4df0]/10 border border-[#5c4df0]/20">
             <Sparkles className="h-3.5 w-3.5" />
@@ -199,15 +177,14 @@ export function ContactPage() {
                 automated DDoS scrubbing and redundant fiber transit.
               </p>
               <div className="pt-2">
-                <Link className="text-xs text-[#a89cf7] hover:underline" to="/status">
-                  View Real-time Edge Network Status →
+                <Link className="text-xs text-[#a89cf7] hover:underline" to="/docs">
+                  Explore Network Architecture in Docs →
                 </Link>
               </div>
             </div>
           </div>
         </div>
       </main>
-    </div>
   )
 }
 export default ContactPage
