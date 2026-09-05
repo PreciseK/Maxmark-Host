@@ -33,6 +33,11 @@ const LegalPage = lazyPage(() => import('@/pages/legal-page'), 'LegalPage')
 const ProfilePage = lazyPage(() => import('@/pages/profile-page'), 'ProfilePage')
 const KbPage = lazyPage(() => import('@/pages/kb-page'), 'KbPage')
 const KbArticlePage = lazyPage(() => import('@/pages/kb-article-page'), 'KbArticlePage')
+const DocsPage = lazyPage(() => import('@/pages/docs-page'), 'DocsPage')
+const StatusPage = lazyPage(() => import('@/pages/status-page'), 'StatusPage')
+const ContactPage = lazyPage(() => import('@/pages/contact-page'), 'ContactPage')
+const AboutPage = lazyPage(() => import('@/pages/about-page'), 'AboutPage')
+const ChangelogPage = lazyPage(() => import('@/pages/changelog-page'), 'ChangelogPage')
 
 // The login page pulls in three.js / react-three-fiber for its shader
 // background — lazy-load it so the dashboard bundle stays lean.
@@ -186,6 +191,11 @@ export function App() {
           path="/login"
         />
         <Route element={<LegalPage />} path="/legal/:policy" />
+        <Route element={<DocsPage />} path="/docs" />
+        <Route element={<StatusPage />} path="/status" />
+        <Route element={<ContactPage />} path="/contact" />
+        <Route element={<AboutPage />} path="/about" />
+        <Route element={<ChangelogPage />} path="/changelog" />
         <Route
           element={
             <Suspense fallback={<div className="min-h-screen bg-[#121214]" />}>

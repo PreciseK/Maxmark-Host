@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import {
+  BookOpen,
   CircleDollarSign,
   Code,
   Eye,
@@ -370,6 +371,20 @@ export function DashboardShell() {
                         <Globe className="h-4 w-4 shrink-0" />
                         <span>DNS</span>
                       </NavLink>
+                      <NavLink
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150',
+                            isActive
+                              ? 'bg-[#262629] text-white'
+                              : 'text-muted-foreground hover:bg-[#1a1a1d] hover:text-white',
+                          )
+                        }
+                        to="/docs"
+                      >
+                        <BookOpen className="h-4 w-4 shrink-0" />
+                        <span>Docs</span>
+                      </NavLink>
                     </>
                   )}
                 </>
@@ -393,12 +408,28 @@ export function DashboardShell() {
                 <Phone className="h-4 w-4" />
               </button>
             </div>
-            <Link
-              className="block text-center text-xs text-[#5c4df0] hover:text-[#796ef3] hover:underline transition-colors duration-150"
-              to="/support"
-            >
-              visit the knowledge base
-            </Link>
+            <div className="flex items-center justify-between text-xs px-1 pt-1">
+              <Link
+                className="text-[#5c4df0] hover:text-[#796ef3] hover:underline transition-colors duration-150"
+                to="/docs"
+              >
+                Docs
+              </Link>
+              <span className="text-white/20">·</span>
+              <Link
+                className="text-muted-foreground hover:text-white hover:underline transition-colors duration-150"
+                to="/support"
+              >
+                Knowledge Base
+              </Link>
+              <span className="text-white/20">·</span>
+              <Link
+                className="text-muted-foreground hover:text-white hover:underline transition-colors duration-150"
+                to="/status"
+              >
+                Status
+              </Link>
+            </div>
           </div>
         </aside>
 
