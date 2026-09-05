@@ -25,6 +25,7 @@ const DashboardHome = lazyPage(() => import('@/pages/dashboard-home'), 'Dashboar
 const PlansPage = lazyPage(() => import('@/pages/plans-page'), 'PlansPage')
 const DomainsPage = lazyPage(() => import('@/pages/domains-page'), 'DomainsPage')
 const DnsZonesPage = lazyPage(() => import('@/pages/dns-zones-page'), 'DnsZonesPage')
+const DnsZoneDetailPage = lazyPage(() => import('@/pages/dns-zone-detail-page'), 'DnsZoneDetailPage')
 const SupportPage = lazyPage(() => import('@/pages/support-page'), 'SupportPage')
 const BillingPage = lazyPage(() => import('@/pages/billing-page'), 'BillingPage')
 const SslPage = lazyPage(() => import('@/pages/ssl-page'), 'SslPage')
@@ -105,6 +106,10 @@ export function App() {
     setSites((prev) => [site, ...prev])
   }
 
+  function handleSiteUpdated(site: ManagedSite) {
+    setSites((prev) => prev.map((s) => (s.id === site.id ? site : s)))
+  }
+
   function handlePluginPurchaseUpsert(purchase: PluginPurchase) {
     setPluginPurchases((prev) => {
       const exists = prev.some((p) => p.id === purchase.id)
@@ -145,11 +150,15 @@ export function App() {
           <Route element={<PlansPage />} path="plans" />
           <Route element={<DomainsPage />} path="domains" />
           <Route element={<DnsZonesPage />} path="dns-zones" />
+          <Route element={<DnsZoneDetailPage />} path="dns-zones/:zoneId" />
           <Route
             element={<SitesPage onSiteCreated={handleSiteCreated} sites={sites} />}
             path="sites"
           />
-          <Route element={<SiteDetailPage sites={sites} />} path="sites/:siteId" />
+          <Route
+            element={<SiteDetailPage onSiteUpdated={handleSiteUpdated} sites={sites} />}
+            path="sites/:siteId"
+          />
           <Route
             element={
               <MarketplacePage

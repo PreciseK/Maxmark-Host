@@ -19,17 +19,37 @@ import {
 } from 'lucide-react'
 
 import { CreateSiteModal } from '@/components/create-site-modal'
-import type { ManagedSite, SiteType } from '@/types/provisioning'
+import type { DbType, ManagedSite, SiteType } from '@/types/provisioning'
 import { EmptyState, NoSearchResultState } from '@/components/ui/ui-states'
 import { WordPressLogo } from '@/components/icons/wordpress-logo'
 import { ActionDropdown } from '@/components/ui/dropdown-menu'
 import { deprovisionSite } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
 
-function SiteTypeBadge({ siteType }: { siteType: SiteType }) {
+const SITE_TYPE_LABEL: Record<SiteType, string> = {
+  wordpress: 'WordPress',
+  nextjs: 'Next.js',
+  static: 'Static Site',
+  nodejs: 'Node.js App',
+}
+
+const DB_TYPE_LABEL: Record<DbType, string> = {
+  none: 'no database',
+  mysql: 'MySQL',
+  postgresql: 'PostgreSQL',
+}
+
+function siteTypeTitle(siteType: SiteType, dbType?: DbType): string {
+  const label = SITE_TYPE_LABEL[siteType]
+  if (siteType === 'wordpress' || !dbType) return label
+  return `${label} (${DB_TYPE_LABEL[dbType]})`
+}
+
+function SiteTypeBadge({ siteType, dbType }: { siteType: SiteType; dbType?: DbType }) {
+  const title = siteTypeTitle(siteType, dbType)
   if (siteType === 'nextjs') {
     return (
-      <span className="inline-flex h-5 w-5 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-white select-none">
+      <span title={title} className="inline-flex h-5 w-5 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-white select-none">
         <svg viewBox="0 0 15 15" fill="none" className="h-3 w-3" aria-hidden>
           <path d="M7.5 1L14 13.5H1L7.5 1Z" fill="white" />
         </svg>
@@ -38,21 +58,21 @@ function SiteTypeBadge({ siteType }: { siteType: SiteType }) {
   }
   if (siteType === 'static') {
     return (
-      <span className="inline-flex h-5 w-5 rounded-full bg-sky-900/60 border border-sky-700/40 items-center justify-center text-sky-400 select-none">
+      <span title={title} className="inline-flex h-5 w-5 rounded-full bg-sky-900/60 border border-sky-700/40 items-center justify-center text-sky-400 select-none">
         <Globe className="h-3 w-3" />
       </span>
     )
   }
   if (siteType === 'nodejs') {
     return (
-      <span className="inline-flex h-5 w-5 rounded-full bg-green-900/60 border border-green-700/40 items-center justify-center text-green-400 select-none">
+      <span title={title} className="inline-flex h-5 w-5 rounded-full bg-green-900/60 border border-green-700/40 items-center justify-center text-green-400 select-none">
         <Zap className="h-3 w-3" />
       </span>
     )
   }
   // default: wordpress
   return (
-    <span className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white select-none">
+    <span title={title} className="inline-flex h-5 w-5 rounded-full bg-[#0073aa] items-center justify-center p-1 text-white select-none">
       <WordPressLogo className="h-3.5 w-3.5" />
     </span>
   )
@@ -197,7 +217,7 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <SiteTypeBadge siteType={site.siteType ?? 'wordpress'} />
+                      <SiteTypeBadge siteType={site.siteType ?? 'wordpress'} dbType={site.db_type} />
                     </td>
                     <td className="px-5 py-4">
                       <Cloud className="h-5 w-5 text-[#88888b] fill-[#88888b]/10" />
