@@ -10,7 +10,6 @@ export function PublicShell() {
     { label: 'About', href: '/about' },
     { label: 'Pricing', href: '/#pricing' },
     { label: 'Docs', href: '/docs' },
-    { label: 'Changelog', href: '/changelog' },
     { label: 'Contact', href: '/contact' },
   ]
 
