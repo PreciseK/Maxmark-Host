@@ -56,7 +56,12 @@ export function LegalPage() {
   return (
     <main className="min-h-screen bg-[#121214] px-5 py-12 text-white">
       <article className="mx-auto max-w-3xl space-y-8">
-        <Link className="text-sm text-violet-300 hover:text-violet-200" to="/login">← Back to sign in</Link>
+        <div className="flex items-center justify-between">
+          <Link to="/">
+            <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
+          </Link>
+          <Link className="text-sm text-violet-300 hover:text-violet-200" to="/login">← Back to sign in</Link>
+        </div>
         <header>
           <p className="text-sm text-white/50">Last updated July 31, 2026</p>
           <h1 className="mt-2 text-4xl font-semibold">{content.title}</h1>

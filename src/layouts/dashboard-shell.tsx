@@ -171,10 +171,10 @@ export function DashboardShell() {
             {/* Logo Area - Hidden in Site Detail Sidebar to match Screenshot 1 */}
             {!isSiteDetail && (
               <div className="p-5 border-b border-[#232328] shrink-0">
-                <h2 className="text-xl font-bold tracking-tight text-white leading-none">
-                  Maxmark Host
-                </h2>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1.5 leading-none">
+                <Link className="inline-block" to="/home">
+                  <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
+                </Link>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-2 leading-none">
                   Managed hosting suite
                 </p>
               </div>

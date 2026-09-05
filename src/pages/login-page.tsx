@@ -135,9 +135,15 @@ export function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-24 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(92,77,240,0.24),transparent_34%),linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:auto,32px_32px,32px_32px]" />
-      <Link className="absolute left-6 top-6 z-10 font-semibold tracking-tight" to="/">Maxmark Host</Link>
+      <Link className="absolute left-6 top-6 z-10 flex items-center gap-2" to="/">
+        <img src="/logo-white.png" alt="Maxmark Host" className="h-7 w-auto" />
+      </Link>
 
       <section className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-black/55 p-6 shadow-2xl backdrop-blur-xl sm:p-9" aria-labelledby="auth-title">
+        <div className="flex justify-center mb-6">
+          <img src="/logomark-white.png" alt="Maxmark" className="h-11 w-auto" />
+        </div>
+
         <div className="mb-8 flex rounded-full border border-white/10 bg-white/5 p-1" role="group" aria-label="Account action">
           {(['signin', 'signup'] as const).map((value) => (
             <button

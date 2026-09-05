@@ -91,9 +91,10 @@ export function StatusPage() {
     <div className="min-h-screen bg-[#060606] text-white flex flex-col selection:bg-[#5c4df0]/30 selection:text-white">
       {/* Top Header */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#060606]/90 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <Link className="flex items-center gap-2.5 font-mono text-sm font-bold text-white tracking-tight" to="/">
-          <span className="h-2 w-2 rounded-full bg-[#5c4df0]" />
-          maxmark<span className="text-[#5c4df0]">/status</span>
+        <Link className="flex items-center gap-2" to="/">
+          <img src="/logo-white.png" alt="Maxmark Host" className="h-6 w-auto" />
+          <span className="text-white/20 font-mono text-xs">/</span>
+          <span className="text-[#a89cf7] font-mono text-xs font-semibold">status</span>
         </Link>
         <div className="flex items-center gap-4">
           <button
