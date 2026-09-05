@@ -1,6 +1,6 @@
 # Maxmark Host
 
-Managed WordPress hosting control panel built with React, Supabase Edge Functions, Paystack, cPanel/WHM, and Cloudflare R2. See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design.
+Modern web and managed cloud hosting platform built with React, Supabase Edge Functions, Paystack, cPanel/WHM, and Cloudflare R2. Supports WordPress, Node.js, Next.js, and static sites with automated GitHub CI/CD, MySQL/PostgreSQL databases, and live DNS management. See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design.
 
 ## Local development
 

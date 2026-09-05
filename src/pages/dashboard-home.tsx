@@ -467,8 +467,8 @@ export function DashboardHome() {
             <EmptyState
               badge="Getting Started"
               icon={<Server className="h-7 w-7 text-violet-400" />}
-              title="No WordPress Sites Provisioned"
-              description="Deploy high-performance, managed WordPress hosting on cPanel infrastructure in seconds."
+              title="No Sites Provisioned"
+              description="Deploy high-performance WordPress, Next.js, Node.js, or static sites in seconds."
               actionLabel="Provision Your First Site"
               actionLink="/sites"
             />

@@ -104,10 +104,10 @@ export function PlansPage() {
         ) : plans.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              badge="Managed WordPress"
+              badge="Hosting Plans"
               icon={<Layers className="h-7 w-7 text-violet-400" />}
               title="No Active Hosting Subscriptions"
-              description="Subscribe to a managed WordPress hosting tier (Standard, Scale, VIP) to provision high-performance cPanel sites."
+              description="Subscribe to a managed hosting tier (Launch, Pro, Scale) to provision high-performance web and WordPress sites."
               actionLabel="Subscribe to Plan"
             />
           </div>

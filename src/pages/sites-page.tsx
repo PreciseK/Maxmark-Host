@@ -118,7 +118,7 @@ export function SitesPage({ sites, onSiteCreated }: SitesPageProps) {
       <div className="bg-[#161619] border border-[#232328] rounded-lg overflow-hidden">
         {/* Card Header & Controls */}
         <div className="px-5 py-4 border-b border-[#232328] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-[#161619]">
-          <h3 className="text-sm font-semibold text-white">Managed WordPress Sites</h3>
+          <h3 className="text-sm font-semibold text-white">Managed Sites</h3>
 
           {/* Search and Filters */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
