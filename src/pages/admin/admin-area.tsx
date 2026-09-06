@@ -17,6 +17,10 @@ import { AdminSites } from '@/pages/admin/admin-sites'
 import { AdminSupport } from '@/pages/admin/admin-support'
 import { AdminSystem } from '@/pages/admin/admin-system'
 import { AdminEnvironments } from '@/pages/admin/admin-environments'
+import { AdminDeployments } from '@/pages/admin/admin-deployments'
+import { AdminPlans } from '@/pages/admin/admin-plans'
+import { AdminDatabases } from '@/pages/admin/admin-databases'
+import { AdminSsl } from '@/pages/admin/admin-ssl'
 import { AdminUserDetail } from '@/pages/admin/admin-user-detail'
 import { AdminUsers } from '@/pages/admin/admin-users'
 
@@ -32,6 +36,10 @@ export function AdminArea() {
           <Route element={<AdminOverview />} index />
           <Route element={<AdminSystem />} path="system" />
           <Route element={<AdminEnvironments />} path="environments" />
+          <Route element={<AdminDeployments />} path="deployments" />
+          <Route element={<AdminPlans />} path="plans" />
+          <Route element={<AdminDatabases />} path="databases" />
+          <Route element={<AdminSsl />} path="ssl" />
           <Route element={<AdminUsers />} path="users" />
           <Route element={<AdminUserDetail />} path="users/:userId" />
           <Route element={<AdminSites />} path="sites" />
