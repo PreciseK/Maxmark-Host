@@ -53,6 +53,7 @@ const mainNavItems = [
   { label: 'Plans', href: '/plans', icon: Layers },
   { label: 'Domains', href: '/domains', icon: Code },
   { label: 'Sites', href: '/sites', icon: Globe2 },
+  { label: 'Emails', href: '/emails', icon: Mail },
   { label: 'Marketplace', href: '/marketplace', icon: Store },
   { label: 'Billing', href: '/billing', icon: CircleDollarSign },
   { label: 'Support', href: '/support', icon: HelpCircle },
@@ -61,6 +62,7 @@ const mainNavItems = [
 // Site-specific sub-sidebar links
 const siteNavItems = [
   { label: 'Overview', tabId: 'credentials', icon: Home },
+  { label: 'Email Accounts', tabId: 'email', icon: Mail },
   { label: 'Git & CI/CD', tabId: 'git-cicd', icon: GitBranch },
   { label: 'Environment Variables', tabId: 'env-vars', icon: Terminal },
   { label: 'SFTP / SSH', tabId: 'sftp', icon: Key },
