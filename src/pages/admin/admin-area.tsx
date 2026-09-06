@@ -16,6 +16,7 @@ import { AdminSecurity } from '@/pages/admin/admin-security'
 import { AdminSites } from '@/pages/admin/admin-sites'
 import { AdminSupport } from '@/pages/admin/admin-support'
 import { AdminSystem } from '@/pages/admin/admin-system'
+import { AdminEnvironments } from '@/pages/admin/admin-environments'
 import { AdminUserDetail } from '@/pages/admin/admin-user-detail'
 import { AdminUsers } from '@/pages/admin/admin-users'
 
@@ -30,6 +31,7 @@ export function AdminArea() {
         <Route element={<AdminShell />}>
           <Route element={<AdminOverview />} index />
           <Route element={<AdminSystem />} path="system" />
+          <Route element={<AdminEnvironments />} path="environments" />
           <Route element={<AdminUsers />} path="users" />
           <Route element={<AdminUserDetail />} path="users/:userId" />
           <Route element={<AdminSites />} path="sites" />

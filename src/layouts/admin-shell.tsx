@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Store,
+  Terminal,
   Users,
 } from 'lucide-react'
 
@@ -29,6 +30,7 @@ import { supabase } from '@/lib/supabase'
 const adminNavItems = [
   { label: 'Overview', href: '/admin', icon: LayoutDashboard, end: true },
   { label: 'System Health', href: '/admin/system', icon: Activity },
+  { label: 'Environments & Runtimes', href: '/admin/environments', icon: Terminal },
   { label: 'Users', href: '/admin/users', icon: Users },
   { label: 'Sites', href: '/admin/sites', icon: Globe2 },
   { label: 'Domains & DNS', href: '/admin/domains', icon: Globe },

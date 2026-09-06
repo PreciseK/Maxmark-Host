@@ -19,6 +19,7 @@ import {
   Cloud,
   History,
   GitBranch,
+  Terminal,
   PenTool,
   TrendingUp,
   Settings,
@@ -61,6 +62,7 @@ const mainNavItems = [
 const siteNavItems = [
   { label: 'Overview', tabId: 'credentials', icon: Home },
   { label: 'Git & CI/CD', tabId: 'git-cicd', icon: GitBranch },
+  { label: 'Environment Variables', tabId: 'env-vars', icon: Terminal },
   { label: 'SFTP / SSH', tabId: 'sftp', icon: Key },
   { label: 'Cloudflare Integration', tabId: 'cloudflare', icon: Cloud },
   { label: 'WordPress Backups', tabId: 'backups', icon: History },

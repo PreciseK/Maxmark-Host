@@ -22,6 +22,7 @@ import {
 import { MetricChart } from '@/components/site/metric-chart'
 import { SettingToggle } from '@/components/site/setting-toggle'
 import { SiteGitCicdTab } from '@/components/site/site-git-cicd-tab'
+import { SiteEnvVarsTab } from '@/components/site/site-env-vars-tab'
 import { WordPressLogo } from '@/components/icons/wordpress-logo'
 import { useSiteResources } from '@/hooks/use-site-resources'
 import { fetchBackupLogs, type BackupLog } from '@/lib/db/backup-logs'
@@ -225,6 +226,7 @@ export function SiteDetailPage({ sites, onSiteUpdated }: SiteDetailPageProps) {
   const tabTitles: Record<string, string> = {
     credentials: 'Credentials',
     'git-cicd': 'Git & CI/CD Deployment',
+    'env-vars': 'Environment Variables',
     'content-delivery': 'Content Delivery Network',
     backups: 'Backups',
     staging: 'Staging & Dev',
@@ -431,6 +433,10 @@ export function SiteDetailPage({ sites, onSiteUpdated }: SiteDetailPageProps) {
       {/* Tab Specific Content Area */}
       {activeTab === 'git-cicd' && site && (
         <SiteGitCicdTab site={site} onSiteUpdated={onSiteUpdated} onCopy={handleCopy} />
+      )}
+
+      {activeTab === 'env-vars' && site && (
+        <SiteEnvVarsTab site={site} onCopy={handleCopy} />
       )}
 
       {activeTab === 'credentials' && (

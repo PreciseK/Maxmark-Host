@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Edit2, Trash2, ExternalLink, Settings, ShieldAlert, Check, Search, Globe } from 'lucide-react'
+import { Edit2, Trash2, ExternalLink, Settings, ShieldAlert, Check, Search, Globe, KeyRound } from 'lucide-react'
 
 import {
   fetchAllProfiles,
@@ -400,6 +400,11 @@ export function AdminSites() {
                           label: 'Open Customer Console',
                           icon: <ExternalLink className="h-3.5 w-3.5 text-sky-400" />,
                           href: `/sites/${site.id}`,
+                        },
+                        {
+                          label: 'Environment Variables',
+                          icon: <KeyRound className="h-3.5 w-3.5 text-emerald-400" />,
+                          href: `/admin/environments?siteId=${site.id}`,
                         },
                         {
                           label: 'Edit Site Details',
