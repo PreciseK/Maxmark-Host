@@ -566,15 +566,13 @@ export function EmailsPage() {
 
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <a
-                              className="px-2.5 py-1 bg-[#202024] hover:bg-[#2c2c32] border border-[#2d2d34] text-white rounded text-[11px] font-medium transition inline-flex items-center gap-1.5"
-                              href={`https://${box.hostname}:2096`}
-                              rel="noreferrer"
-                              target="_blank"
+                            <Link
+                              className="px-2.5 py-1 bg-[#5c4df0]/20 hover:bg-[#5c4df0]/30 border border-[#5c4df0]/40 text-white rounded text-[11px] font-medium transition inline-flex items-center gap-1.5"
+                              to={`/webmail?mailbox=${encodeURIComponent(box.emailAddress)}`}
                             >
-                              Webmail
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
+                              <Mail className="h-3 w-3 text-[#5c4df0]" />
+                              Open Webmail
+                            </Link>
 
                             <button
                               className="p-1 hover:bg-[#202024] rounded text-muted-foreground hover:text-white transition"

@@ -73,8 +73,8 @@ test('customer emails page provides mailboxes, forwarders, DNS deliverability, a
   assert.match(customerPage, /465 \(SSL\) or 587 \(TLS\)/)
 
   // Webmail launcher
-  assert.match(customerPage, /:2096/)
-  assert.match(customerPage, /Webmail/)
+  assert.match(customerPage, /webmail\?mailbox=/)
+  assert.match(customerPage, /Open Webmail/)
 })
 
 test('admin emails page provides fleet telemetry, cross-tenant management, and cluster controls', async () => {

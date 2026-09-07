@@ -30,6 +30,7 @@ const DnsZoneDetailPage = lazyPage(() => import('@/pages/dns-zone-detail-page'),
 const SupportPage = lazyPage(() => import('@/pages/support-page'), 'SupportPage')
 const BillingPage = lazyPage(() => import('@/pages/billing-page'), 'BillingPage')
 const EmailsPage = lazyPage(() => import('@/pages/emails-page'), 'EmailsPage')
+const WebmailPage = lazyPage(() => import('@/pages/webmail-page'), 'WebmailPage')
 const SslPage = lazyPage(() => import('@/pages/ssl-page'), 'SslPage')
 const LegalPage = lazyPage(() => import('@/pages/legal-page'), 'LegalPage')
 const ProfilePage = lazyPage(() => import('@/pages/profile-page'), 'ProfilePage')
@@ -179,6 +180,7 @@ export function App() {
           />
           <Route element={<BillingPage />} path="billing" />
           <Route element={<EmailsPage />} path="emails" />
+          <Route element={<WebmailPage />} path="webmail" />
           <Route element={<ProfilePage />} path="profile" />
           <Route element={<SupportPage />} path="support" />
           <Route element={<SslPage />} path="ssl" />
